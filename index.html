@@ -1155,7 +1155,7 @@ async function enter(){
   const bar = document.querySelector(".top-actions");
   if (bar && !$id("signOutBtn")){
     const b = document.createElement("button"); b.className = "btn"; b.id = "signOutBtn"; b.type = "button";
-    b.textContent = `Sign out (${profile.name || profile.email})`; b.onclick = async () => { await sb.auth.signOut(); location.reload(); };
+    b.textContent = `Sign out (${profile.name || profile.email})`; b.onclick = async () => { b.disabled = true; b.textContent = "Signing out…"; try { await sb.auth.signOut({ scope: "local" }); } catch(e){} try { Object.keys(localStorage).filter(k => /^sb-.*-auth-token/.test(k)).forEach(k => localStorage.removeItem(k)); } catch(e){} location.reload(); };
     bar.appendChild(b);
     if (profile.level === "2"){ const k = document.createElement("button"); k.className = "btn"; k.id = "backupBtn"; k.type = "button"; k.textContent = "Backup"; k.onclick = openBackup; bar.insertBefore(k, b); }
   }
