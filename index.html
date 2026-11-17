@@ -1315,7 +1315,7 @@ function daysPill(d,none){if(d==null)return`<span class="pill none">${esc(none||
 function agePill(a){return a==null?`<span class="pill none">Unknown</span>`:`<span class="pill ${ageTone(a)}">${a} yr${a===1?"":"s"}</span>`}
 const active=()=>S.cars.filter(c=>c.status!=="Sold");
 const sold=()=>S.cars.filter(c=>c.status==="Sold");
-const inWorkshop=c=>/workshop/i.test(c.health||"")||/workshop/i.test(c.nightPark||"");
+const inWorkshop=c=>/workshop/i.test(c.health||"");
 const plate=(c,lg)=>`<span class="plate${lg?" lg":""}">${esc(c.plate||"No plate")}</span>`;
 const uniq=(arr)=>[...new Set(arr.filter(v=>v!=null&&v!==""))].sort((a,b)=>String(a).localeCompare(String(b)));
 
@@ -1539,7 +1539,7 @@ function vOverview(){
 const FLAGS={"":"All cars",workshop:"At workshop",licexp:"Licence expired",lic30:"Licence due ≤30 d",lic45:"Licence due 31–45 d",lic90:"Licence due 46–90 d",licok:"Licence valid 90+ d",licnone:"Licence date missing",comexp:"Commercial expired",com30:"Commercial due ≤30 d",com45:"Commercial due 31–45 d",com90:"Commercial due 46–90 d",comok:"Commercial valid 90+ d",comnone:"Commercial not held",old:"Older than 12 yrs",nodriver:"No driver",gpsoff:"GPS not active",dlexp:"Driver licence expired / ≤30 d",sell:"Sell / inspect candidates"};
 let _openArr=null,_openSrc=null;
 function openArrSet(){if(_openSrc===S.maint&&_openArr)return _openArr;const s=new Set();try{maintRows().forEach(r=>{if(r.arr&&!r.date&&r.arr>="2026-10-01")s.add(normPlate(r.plate))})}catch(_){}_openSrc=S.maint;_openArr=s;return s}
-const atWorkshop=c=>inWorkshop(c)||openArrSet().has(normPlate(c.plate));
+const atWorkshop=c=>inWorkshop(c);
 const carDriver=c=>(S.drivers||[]).find(d=>d.car&&normPlate(d.car)===normPlate(c.plate))||null;
 const dlDaysOf=c=>{const d=carDriver(c);return d&&d.dlExp?daysUntil(d.dlExp):null};
 let _sellMap=null,_sellKey=null;
@@ -1549,7 +1549,7 @@ function flagMatch(c,f){const l=licDays(c),m=commDays(c),a=carAge(c);switch(f){
   case"comexp":return m!=null&&m<0;case"com30":return m!=null&&m>=0&&m<=30;case"com45":return m!=null&&m>30&&m<=45;case"com90":return m!=null&&m>45&&m<=90;case"comok":return m!=null&&m>90;case"comnone":return c.commStatus!=="Yes";
   case"old":return a!=null&&a>12;case"nodriver":return!c.driver&&!carDriver(c);case"gpsoff":return!!c.gps&&c.gps!=="Active";
   case"dlexp":{const d=dlDaysOf(c);return d!=null&&d<=30}case"sell":{const x=sellMap().get(c._id);return!!x&&(x.tier[1].startsWith("Sell")||x.tier[1]==="Inspect first")}
-  default:return true}}
+  default:if(String(f).startsWith("hs:"))return(String(c.health||"").trim()||"Not set")===f.slice(3);return true}}
 function urgency(c){let u=9999;const l=licDays(c),m=commDays(c),d=dlDaysOf(c);[l,m,d].forEach(x=>{if(x!=null)u=Math.min(u,x)});if(atWorkshop(c))u=Math.min(u,15);return u}
 function scoped(){return active().filter(c=>(!S.fOwner||c.owner===S.fOwner)&&(!S.fLoc||c.location===S.fLoc)&&(!S.fBrand||c.brand===S.fBrand))}
 function filtered(){
@@ -1608,6 +1608,8 @@ function vCars(){
     ${T("dlexp",n("dlexp"),"Driver licence expired / ≤30 d",n("dlexp")?"t-bad":"t-ok")}
     ${T("sell",n("sell"),"Sell / inspect candidates",n("sell")?"t-bad":"t-ok")}
   </div>
+  ${(()=>{const m=new Map();B.forEach(c=>{const v=String(c.health||"").trim()||"Not set";m.set(v,(m.get(v)||0)+1)});const e=[...m.entries()].sort((a,b)=>b[1]-a[1]);
+    return`<section class="panel"><h2>Car status <span class="sub" style="font-family:var(--sans);font-size:13px;font-weight:400">(column AF)</span></h2><div class="board cboard sm">${e.map(([v,k])=>T("hs:"+v,k,esc(v),/workshop/i.test(v)?"t-warn":/^active$/i.test(v)?"t-ok":"")).join("")}</div></section>`})()}
   <div class="cols cstat">
    <section class="panel"><h2>Licence life</h2><div class="board cboard sm">
      ${T("licexp",n("licexp"),"Expired",n("licexp")?"t-bad":"t-ok")}${T("lic30",n("lic30"),"Due ≤30 days",n("lic30")?"t-bad":"t-ok")}${T("lic45",n("lic45"),"Due 31–45 days",n("lic45")?"t-warn":"t-ok")}${T("lic90",n("lic90"),"Due 46–90 days",n("lic90")?"t-warn":"")}${T("licok",n("licok"),"Valid 90+ days","t-ok")}</div>${seg(licParts)}</section>
@@ -1617,7 +1619,7 @@ function vCars(){
   <div class="toolbar listbar">
     <div class="segnav small" role="tablist"><button role="tab" data-cview="cards" class="${view==="cards"?"on":""}" aria-selected="${view==="cards"}">Cards</button><button role="tab" data-cview="table" class="${view==="table"?"on":""}" aria-selected="${view==="table"}">Table</button></div>
     ${view==="cards"?`<label for="carSort" class="sub">Sort</label>${sel("carSort",S.sort in {urg:1,plate:1,lic:1,com:1,age:1,owner:1}?S.sort:"urg",[["urg","Most urgent first"],["lic","Licence due first"],["com","Commercial due first"],["age","Youngest first"],["plate","Plate"],["owner","Owner"]],"Sort cars")}`:""}
-    ${S.fFlag?`<span class="pill warn" style="font-size:13px">${esc(FLAGS[S.fFlag])}</span><button class="btn ghost" data-cflag="" style="padding:3px 10px">Clear filter</button>`:""}
+    ${S.fFlag?`<span class="pill warn" style="font-size:13px">${esc(FLAGS[S.fFlag]||("Status: "+String(S.fFlag).slice(3)))}</span><button class="btn ghost" data-cflag="" style="padding:3px 10px">Clear filter</button>`:""}
     <span class="count">${L.length} of ${B.length} cars</span>
   </div>
   ${view==="cards"?`<div class="cargrid">${L.map(carCard).join("")}</div>${L.length?"":`<div class="empty">No cars match these filters.</div>`}`:`
@@ -2746,6 +2748,8 @@ function parseCarSheet(X,ws){
   const hi=rows.slice(0,20).findIndex(r=>r&&r.some(c=>PLATE.includes(hn(c))));
   if(hi<0)throw new Error("No header row with a car plate column (“Vehicle Plate” or “Car No”) found in the first 20 rows");
   let loc=0,pl=0;const cols=rows[hi].map(h=>{const n=hn(h);if(PLATE.includes(n)){pl++;return pl===1?"plate":null}if(n==="location"){loc++;return loc===1?"location":"regLocation"}return HMAP[n]||null});
+  for(let k=0;k<cols.length;k++)if(cols[k]==="health")cols[k]=null;cols[31]="health"; // column AF = car status
+
   const out=[];rows.slice(hi+1).forEach(r=>{const d={};cols.forEach((k,i)=>{if(!k)return;const v=cellVal(X,k,r[i]);if(v!=null&&v!=="")d[k]=v});if(d.plate)out.push(d)});
   return out;
 }
@@ -2853,8 +2857,8 @@ function vMaintNew(){
   const pBtn=(p,cls)=>{const c=carBy.get(normPlate(p));return c?`<button class="chipbtn" data-car="${esc(c._id)}"><span class="plate">${esc(p)}</span></button>`:`<span class="plate"${cls?` style="opacity:.6"`:""}>${esc(p)}</span>`};
   const carName=p=>{const c=carBy.get(normPlate(p));return c?`${c.brand||""} ${c.model||""}`.trim():"Not in car list"};
   // KPIs
-  const open=J.filter(j=>!j.done&&dOf(j)>=back(today(),180)).sort((a,b)=>dOf(a)-dOf(b));
-  const openCars=new Set(open.map(j=>normPlate(j.plate)));const longest=open[0];const longDays=longest?Math.round((today()-dOf(longest))/DAY):null;
+  const oD=j=>parseD(j.arr)||dOf(j);const open=J.filter(j=>((j.arr||j.date||"")>=DUR_FROM)&&(!j.done||(j.arr&&!j.date))).sort((a,b)=>oD(a)-oD(b));
+  const openCars=new Set(open.map(j=>normPlate(j.plate)));const longest=open[0];const longDays=longest?Math.round((today()-oD(longest))/DAY):null;
   const w60=new Map();J.filter(j=>dOf(j)>back(endD,60)&&dOf(j)<=endD).forEach(j=>{const k=normPlate(j.plate);if(!w60.has(k))w60.set(k,[]);w60.get(k).push(j)});
   const repCars=[...w60.entries()].filter(([,v])=>v.length>=3).map(([k,v])=>({plate:v[0].plate,jobs:v.sort((a,b)=>dOf(a)-dOf(b)),amt:spend(v)})).sort((a,b)=>b.jobs.length-a.jobs.length||b.amt-a.amt);
   const sc=spend(Jc),sp=spend(Jp),chg=sp?Math.round((sc-sp)/sp*100):null,jchg=Jp.length?Math.round((Jc.length-Jp.length)/Jp.length*100):null;
@@ -2891,9 +2895,9 @@ function vMaintNew(){
    <span class="count">${fmtN(Jc.length)} jobs (car visits) · ${fmtN(curRows.length)} expense lines in ${ML}</span></div>
   <div class="board mboard">
    ${tile(fmtN(Jc.length),`Total jobs · ${ML} ${prev?delta(jchg,null)+" vs "+monLabel(prev):""}`)}
-   ${tile(fmtN(open.length),"In progress (status not Done)",open.length?"t-warn":"t-ok","#maint-open")}
+   ${tile(fmtN(open.length),"In progress · since 1 Oct 2026",open.length?"t-warn":"t-ok","#maint-open")}
    ${tile(fmtN(repCars.length),"Repeat cars (3+ visits in 60 days)",repCars.length?"t-bad":"t-ok","#maint-repcars")}
-   ${tile(fmtN(openCars.size),"At workshop (cars with open jobs)",openCars.size?"t-warn":"t-ok","#maint-open")}
+   ${tile(fmtN(openCars.size),"At workshop · cars with open jobs",openCars.size?"t-warn":"t-ok","#maint-open")}
    ${(()=>{const dj=cur>=DUR_FROM.slice(0,7)?Jc.filter(j=>j.arr&&j.date&&durOf(j)>=0).map(j=>({p:j.plate,d:durOf(j)})).sort((a,b)=>b.d-a.d):[];const av=dj.length?dj.reduce((a,b)=>a+b.d,0)/dj.length:null;
       return tile(dj.length?dj[0].d+" d":"—",dj.length?`Longest service · ${esc(dj[0].p)} · avg ${fmtN(av,1)} d`:cur<DUR_FROM.slice(0,7)?"Longest service (from Oct 2026)":"Longest service (no arrival dates)",dj.length&&dj[0].d>14?"t-bad":dj.length&&dj[0].d>7?"t-warn":"","#maint-dur")})()}
    ${tile(money(sc),`Total spend MMK · ${ML} ${prev?delta(chg,false)+" vs "+monLabel(prev):""}`)}
@@ -2913,8 +2917,8 @@ function vMaintNew(){
    <div>
     <section class="panel" id="maint-repcars"><h2>Repeat cars · 60 days to ${esc(endD.toLocaleDateString(undefined,{day:"numeric",month:"short"}))} <span class="pill ${repCars.length?"bad":"ok"}">${repCars.length}</span></h2>
      ${repCars.length?`<ul class="att">${repCars.slice(0,10).map(x=>`<li>${pBtn(x.plate)}<div class="what">${x.jobs.length} visits · ${fmtN(x.amt)} MMK<small>${x.jobs.map(j=>esc(j.date?fmtD(j.date):monLabel(j.m))).join(" · ")}</small></div><span class="pill bad">${x.jobs.length}×</span></li>`).join("")}</ul>${repCars.length>10?`<p class="sub">and ${repCars.length-10} more</p>`:""}`:`<p class="okline">No car came 3 or more times in 60 days.</p>`}</section>
-    <section class="panel" id="maint-open"><h2>In progress · at workshop <span class="pill ${open.length?"warn":"ok"}">${open.length}</span></h2><p class="hint">Jobs whose Status isn’t “Done” (last 6 months), oldest first.</p>
-     ${open.length?`<ul class="att">${open.slice(0,10).map(j=>{const d=Math.round((today()-dOf(j))/DAY);return`<li>${pBtn(j.plate)}<div class="what">${esc([...j.cats].join(", ")||"Job")} · ${fmtN(j.amt)} MMK<small>${j.date?fmtD(j.date):monLabel(j.m)} · ${esc(j.sup||"")}</small></div><span class="pill ${d>30?"bad":"warn"}">${d} d</span></li>`}).join("")}</ul>${open.length>10?`<p class="sub">and ${open.length-10} more</p>`:""}`:`<p class="okline">Every job is marked Done.</p>`}</section>
+    <section class="panel" id="maint-open"><h2>In progress · at workshop <span class="pill ${open.length?"warn":"ok"}">${open.length}</span></h2><p class="hint">Jobs since 1 Oct 2026 that aren’t done (status not Done, or arrived without a done date), oldest first. Earlier jobs have no workshop data.</p>
+     ${open.length?`<ul class="att">${open.slice(0,10).map(j=>{const d=Math.round((today()-oD(j))/DAY);return`<li>${pBtn(j.plate)}<div class="what">${esc([...j.cats].join(", ")||"Job")} · ${fmtN(j.amt)} MMK<small>${j.date?fmtD(j.date):monLabel(j.m)} · ${esc(j.sup||"")}</small></div><span class="pill ${d>30?"bad":"warn"}">${d} d</span></li>`}).join("")}</ul>${open.length>10?`<p class="sub">and ${open.length-10} more</p>`:""}`:`<p class="okline">Every job is marked Done.</p>`}</section>
    </div>
   </div>
   <h2 class="ovh">Trends</h2>
