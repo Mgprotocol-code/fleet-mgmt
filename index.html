@@ -2615,18 +2615,24 @@ const MAINT_DEFAULT={link:"https://docs.google.com/spreadsheets/d/15OKX2Tbnbjeq_
 const sheetIdOf=l=>{const m=/\/d\/([a-zA-Z0-9_-]{20,})/.exec(l||"");return m?m[1]:(/^[a-zA-Z0-9_-]{20,}$/.test(l||"")?l:null)};
 async function fetchWB(link,tabs){
   const X=await loadXLSX();const id=sheetIdOf(link);if(!id)throw new Error("The Google Sheet link isn’t valid");
-  let e1;
-  try{const r=await fetch(`https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
-    const buf=new Uint8Array(await r.arrayBuffer());if(buf[0]===60)throw new Error("not shared");return X.read(buf,{type:"array",cellDates:false})}
-  catch(e){e1=e}
-  const list=tabs&&tabs.length?tabs:[null];const wb=X.utils.book_new();
-  for(const t of list){
-    const r=await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${t?`&sheet=${encodeURIComponent(t)}`:""}`,{cache:"no-store"}).catch(()=>null);
-    if(!r||!r.ok)throw new Error(`Google didn’t allow the portal to read this sheet (${e1&&e1.message||"error"}${r?`; HTTP ${r.status}`:""}). Open the sheet → Share → General access → “Anyone with the link” → Viewer.`);
-    const txt=await r.text();if(/^\s*<!DOCTYPE html|<html/i.test(txt))throw new Error("Google asked for a sign-in: share the sheet as “Anyone with the link → Viewer”.");
-    const w=X.read(txt,{type:"string"});X.utils.book_append_sheet(wb,w.Sheets[w.SheetNames[0]],String(t||"Sheet1").slice(0,31));
-  }
-  return wb;
+  const list=tabs&&tabs.length?tabs:[null];const errs=[];
+  // 1) CSV per tab (the same address that downloads data.csv) – Google allows websites to read this
+  try{const wb=X.utils.book_new();
+    for(const t of list){
+      const url=`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${t?`&sheet=${encodeURIComponent(t)}`:""}`;
+      let r;try{r=await fetch(url,{cache:"no-store",credentials:"omit"})}catch(e){throw new Error(`network (${e.message})`)}
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const txt=await r.text();if(/^\s*<!DOCTYPE html|<html/i.test(txt))throw new Error("Google asked for a sign-in");
+      const w=X.read(txt,{type:"string"});X.utils.book_append_sheet(wb,w.Sheets[w.SheetNames[0]],String(t||"Sheet1").replace(/[\\\/?*\[\]:]/g," ").slice(0,31));
+    }
+    wb.__csvTabs=list;return wb;
+  }catch(e){errs.push("CSV: "+e.message)}
+  // 2) Excel export (all tabs) as a backup
+  try{const r=await fetch(`https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`,{cache:"no-store",credentials:"omit"});if(!r.ok)throw new Error("HTTP "+r.status);
+    const buf=new Uint8Array(await r.arrayBuffer());if(buf[0]===60)throw new Error("Google asked for a sign-in");return X.read(buf,{type:"array",cellDates:false})}
+  catch(e){errs.push("Excel: "+e.message)}
+  const signin=errs.some(x=>/sign-in|HTTP 40[13]/.test(x));
+  throw new Error(signin?"Google asked for a sign-in: share the sheet as “Anyone with the link → Viewer”.":`The browser couldn’t reach Google Sheets (${errs.join("; ")}). Check that the sheet opens as data.csv in an incognito window, and that your network or browser extensions don’t block docs.google.com.`);
 }
 const tabKey=t=>String(t||"").toLowerCase().replace(/[^a-z0-9]+/g,"");
 function pickWS(wb,tab){if(tab){const K=tabKey(tab);const byLen=a=>[...a].sort((x,y)=>x.length-y.length)[0];const n=wb.SheetNames.find(x=>x.trim().toLowerCase()===tab.trim().toLowerCase())||wb.SheetNames.find(x=>tabKey(x)===K)||byLen(wb.SheetNames.filter(x=>tabKey(x).startsWith(K)))||byLen(wb.SheetNames.filter(x=>tabKey(x).includes(K)));if(!n)throw new Error(`Tab “${tab}” not found. Tabs in this sheet: ${wb.SheetNames.slice(0,10).join(", ")}`);return wb.Sheets[n]}return wb.Sheets[wb.SheetNames[0]]}
