@@ -222,6 +222,13 @@ body.p-nowrite [data-act=sellrecs],body.p-nowrite [data-act=sellclear],body.p-no
 .lvlkey{display:flex;flex-direction:column;gap:6px;margin-top:14px;font-size:13.5px;color:var(--muted)}
 #issuesHost[hidden]{display:none!important}
 #maintHost[hidden]{display:none!important}
+#upBtn,[data-act=upload],[data-act=maintup],[data-act=drvup]{display:none!important}
+body.src-cars #addBtn,body.src-cars [data-act=edit],body.src-cars [data-act=sell],body.src-cars [data-act=restore],body.src-cars [data-act=delete],body.src-cars [data-act=extlic],body.src-cars [data-act=extcom]{display:none!important}
+.srcrow{padding-bottom:14px}.srchead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.srcform{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:10px;align-items:end;margin-top:10px}
+.srcform label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}.srcform .field{width:100%}
+.srcbtns{display:flex;gap:6px}
+@media (max-width:760px){.srcform{grid-template-columns:1fr}}
 .redeem{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
 .codebox{display:flex;flex-direction:column;gap:4px;background:var(--ok-bg);border:1px solid var(--ok);border-radius:8px;padding:12px 16px;margin:0 0 14px}
 .codebox .bigcode{font-family:var(--cond);font-size:34px;letter-spacing:.15em;color:var(--ok)}
@@ -421,7 +428,7 @@ window.FLEET_CONFIG = {
       <a href="#groups">Summaries</a>
       <a href="#renewals">Renewals</a>
       <a href="#history">Sold &amp; history</a>
-      <a href="#updates">Weekly uploads</a>
+      <a href="#updates">Data sources</a>
       <a href="#access" data-l2nav hidden>Users &amp; access</a>
     </nav>
     <div class="top-actions">
@@ -1447,15 +1454,16 @@ function vOverview(){
   if(S.drivers.length){const I=drvIssues();const arr=[...I.exp,...I.d30];
    add("dl","Driver licences",arr.length,`${I.exp.length?`${I.exp.length} expired · `:""}${I.d30.length?`${I.d30.length} due within 30 days · `:""}${I.d90.length} due in 31–90 days${I.chk.length?` · ${I.chk.length} to check`:""}`,
    ul(arr.map(d=>{const st=dlState(d);const c=drvCar(d);return`<li>${c?pBtn(c.plate,c._id):`<span class="plate" style="opacity:.5">No car</span>`}<div class="what"><button class="chipbtn dname" data-drv="${esc(drvDocId(d))}">${esc(d.name)}</button><small>${esc(d.supervisor||"")} · ${esc(d.phone||"")}</small></div><span class="pill ${st[0]}">${fmtD(d.dlExp)}</span></li>`})),"#drivers","")}
-  {const A=updAlerts();if(S.loaded&&S.metaLoaded)add("upd","Weekly Friday uploads",A.length,A.length?A.map(x=>`${esc(x.l)}: ${esc(x.st[1])}`).join(" · "):"All data updated this week",`<ul class="att">${A.map(x=>`<li style="grid-template-columns:1fr auto"><div class="what">${esc(x.l)}<small>Last: ${x.st[2]?new Date(x.st[2]).toLocaleDateString():"never"}</small></div><span class="pill ${x.st[0]}">${esc(x.st[1])}</span></li>`).join("")}</ul>`,"#updates","")}
+  {const A=updAlerts();if(false)add("upd","Weekly Friday uploads",A.length,A.length?A.map(x=>`${esc(x.l)}: ${esc(x.st[1])}`).join(" · "):"All data updated this week",`<ul class="att">${A.map(x=>`<li style="grid-template-columns:1fr auto"><div class="what">${esc(x.l)}<small>Last: ${x.st[2]?new Date(x.st[2]).toLocaleDateString():"never"}</small></div><span class="pill ${x.st[0]}">${esc(x.st[1])}</span></li>`).join("")}</ul>`,"#updates","")}
   {const IS=window.__fleetIssues;if(IS){const td=isoD(today());const open=IS.filter(i=>i.status!=="Done");const p1=open.filter(i=>i.priority==="P-1");const late=open.filter(i=>i.due&&i.due<td);const imp=[...new Map([...p1,...late].map(i=>[i.id,i])).values()].sort((a,b)=>(a.due||"9").localeCompare(b.due||"9"));
    add("iss","Daily issues",imp.length,`${open.length} open · ${p1.length} P-1 not done · ${late.length} past due date`,ul(imp.map(i=>`<li style="grid-template-columns:1fr auto"><div class="what"><strong>${esc(i.category||"")}</strong> · ${esc(String(i.detail||"").slice(0,120))}<small>${esc(i.status)} · ${esc(i.assigned||i.owner||"Unassigned")}${i.due?` · due ${fmtD(i.due)}`:""}</small></div><span class="pill ${i.priority==="P-1"?"bad":"warn"}">${esc(i.priority||(i.due<td?"Late":""))}${i.priority&&i.due&&i.due<td?" · late":""}</span></li>`)),"#issues","")}}
+  {const er=Object.entries(S.srcStatus||{}).filter(([k,v])=>v.state==="err");if(er.length)add("src","Google Sheet problems",er.length,er.map(([k,v])=>`${esc(SRC_DEF[k][0])}: ${esc(v.msg)}`).join(" · "),`<p class="sub" style="margin:4px 0 8px">Open <a href="#updates">Data sources</a> to fix the link or sharing.</p>`,"#updates","")}
   add("ws","In workshop",ws,ws?`${ws} cars: ${esc(L.filter(inWorkshop).map(c=>c.plate).join(", "))}`:"No cars in the workshop",`<div class="chips" style="margin:2px 0 8px">${L.filter(inWorkshop).map(c=>pBtn(c.plate,c._id)).join("")}</div>`,"","");
   const need=G.filter(g=>g.n);
   const grpHTML=g=>g.n?`<details class="agrp" data-ov="${g.id}"${S.ovOpen.has(g.id)?" open":""}><summary><span class="ag-t">${g.title}</span><span class="pill bad">${g.n}</span><span class="ag-l">${g.line}</span>${g.href?`<a href="${g.href}" ${g.nav} class="ag-a">See all</a>`:"<span></span>"}</summary><div class="ag-b">${g.body}</div></details>`
     :`<div class="agrp none"><div class="ag-row"><span class="ag-t">${g.title}</span><span class="pill ok">0</span><span class="ag-l ok">${g.line}</span><span></span></div></div>`;
   let att=`<section class="panel"><div class="ahead" style="border:0;margin:0;padding:0"><h2>Needs attention</h2><span class="ag-btns"><button class="btn ghost" data-act="ovall" data-v="1">Expand all</button><button class="btn ghost" data-act="ovall" data-v="0">Collapse all</button></span></div>
-   <p class="ovsum">${need.length?`<strong>${need.length} of ${G.length} areas need action</strong> · ${need.map(g=>`${g.n} ${({lic:"licence renewals",fuel:"bad fuel use",office:"high office fuel",bal:"fuel over-use",cpk:"high cost per km",rep:"repeated repairs",norec:"without driving record",ws:"in workshop",sell:"to sell or replace",dl:"driver licences",upd:"weekly uploads pending",iss:"daily issues to action"})[g.id]||""}`).join(" · ")}`:"<strong>Nothing needs action right now.</strong>"}</p>
+   <p class="ovsum">${need.length?`<strong>${need.length} of ${G.length} areas need action</strong> · ${need.map(g=>`${g.n} ${({lic:"licence renewals",fuel:"bad fuel use",office:"high office fuel",bal:"fuel over-use",cpk:"high cost per km",rep:"repeated repairs",norec:"without driving record",ws:"in workshop",sell:"to sell or replace",dl:"driver licences",upd:"weekly uploads pending",src:"sheet problems",iss:"daily issues to action"})[g.id]||""}`).join(" · ")}`:"<strong>Nothing needs action right now.</strong>"}</p>
    <p class="hint">Select a line to see its cars.</p>${G.map(grpHTML).join("")}</section>`;
   const owners={};L.forEach(c=>{const o=c.owner||"Unassigned";owners[o]=owners[o]||{n:0,ws:0};owners[o].n++;if(inWorkshop(c))owners[o].ws++});
   const oList=Object.entries(owners).sort((a,b)=>b[1].n-a[1].n);const oMax=Math.max(1,...oList.map(o=>o[1].n));
@@ -2019,7 +2027,7 @@ function mPeriodMonths(all){const p=S.mPeriod;if(p==="all")return all;if(/^\d{4}
 function vMaint(){
   const all=mMonths();
   const upBtn=S.db&&S.canWrite?`<button class="btn primary" data-act="maintup">Upload maintenance Excel</button>`:"";
-  if(!all.length)return`<div class="empty"><h2>No maintenance records yet</h2><p>Upload your maintenance sheet. Rows are grouped by the Month column.</p>${upBtn}</div>`;
+  if(!all.length)return`<div class="empty"><h2>No maintenance records yet</h2><p>Link the maintenance Google Sheet under Data sources.</p>${upBtn}</div>`;
   const months=mPeriodMonths(all);const mset=new Set(months);
   const carBy=new Map(S.cars.map(c=>[normPlate(c.plate),c]));
   const ownerOf=r=>{const c=carBy.get(normPlate(r.plate));return c?(c.owner||"Not set"):"Not in car list"};
@@ -2265,7 +2273,7 @@ function drvFiltered(){
 }
 function vDrivers(){
   const upBtn=S.db&&S.canWrite?`<button class="btn primary" data-act="drvup">Upload driver Excel</button>`:"";
-  if(!S.drivers.length)return`<div class="empty"><h2>No driver records yet</h2><p>Upload your driver information sheet. The driving licence expiry date is read from the “Driving License” column.</p>${upBtn}</div>`;
+  if(!S.drivers.length)return`<div class="empty"><h2>No driver records yet</h2><p>Link the driver Google Sheet under Data sources. The driving licence expiry date is read from the “Driving License” column.</p>${upBtn}</div>`;
   const I=drvIssues();const D=S.drivers;
   const svc=d=>{const y=yearsSince(d.join);return y==null?null:y};
   const L=drvFiltered();
@@ -2415,7 +2423,7 @@ function snapTable(b,a,onlyChanged){
   return`<div class="tw"><table class="snap"><thead><tr><th>What</th><th class="num">Current (before)</th><th class="num">Updated (after)</th><th class="num">Change</th></tr></thead><tbody>${rows.map(([k,l,dir])=>{const x=b[k],y=a[k];const num=typeof x==="number"&&typeof y==="number";const d=num?y-x:null;
     const cls=!num||!d||!dir?"":(d>0)===(dir>0)?"up-bad":"up-good";return`<tr style="cursor:default"${String(x)!==String(y)?' class="chgrow"':""}><td>${esc(l)}</td><td class="num">${num?fmtN(x):esc(x??"—")}</td><td class="num"><strong>${num?fmtN(y):esc(y??"—")}</strong></td><td class="num">${num?(d?`<span class="delta ${cls}">${d>0?"▲ +":"▼ "}${fmtN(d)}</span>`:"—"):(String(x)!==String(y)?`<span class="delta">changed</span>`:"—")}</td></tr>`}).join("")}</tbody></table></div>`;
 }
-function updBanner(){
+function updBanner(){return"";
   if(!S.db||!S.loaded||!S.metaLoaded)return"";const A=updAlerts();if(!A.length)return"";const bad=A.filter(x=>x.st[0]==="bad");
   return`<div class="updbanner ${bad.length?"bad":"warn"}" role="alert"><strong>${bad.length?"⚠ Weekly Friday upload missed":"Friday upload due today"}:</strong> ${A.map(x=>`${esc(x.l)} (${esc(x.st[1])})`).join(" · ")} <a href="#updates">Open weekly uploads</a></div>`;
 }
@@ -2481,7 +2489,7 @@ function openAccess(){
   if(!dl.open)dl.showModal();
 }
 /* ---------- Users & access ---------- */
-const SECTIONS=[["overview","Dashboard"],["issues","Daily issues"],["cars","Car Info"],["drivers","Drivers"],["usage","Driving & fuel"],["maint","Maintenance"],["groups","Summaries"],["renewals","Renewals"],["history","Sold & history"],["updates","Weekly uploads"]];
+const SECTIONS=[["overview","Dashboard"],["issues","Daily issues"],["cars","Car Info"],["drivers","Drivers"],["usage","Driving & fuel"],["maint","Maintenance"],["groups","Summaries"],["renewals","Renewals"],["history","Sold & history"],["updates","Data sources"]];
 const ALLSEC=SECTIONS.map(x=>x[0]);
 const ACC_LEVELS=[["2","Level 2 · Full access"],["1","Level 1 · Read & write"],["view","View only"],["none","No access"]];
 const levelName=l=>(ACC_LEVELS.find(x=>x[0]===String(l))||ACC_LEVELS[2])[1];
@@ -2598,7 +2606,87 @@ function inviteSection(){
    ${L.length?`<div class="tw" style="margin-top:12px"><table><thead><tr><th>Code</th><th>For</th><th>Level</th><th>Status</th><th></th></tr></thead><tbody>${L.map(([c,v])=>`<tr style="cursor:default"><td><strong class="codecell">${esc(c)}</strong></td><td>${esc(v.label||"—")}</td><td>${esc(levelName(v.level))}</td><td>${v.usedBy?`<span class="pill ok">Used by ${esc(S.names[v.usedBy]||"someone")}</span>`:`<span class="pill warn">Waiting</span>`}</td><td><button class="btn danger ghost" data-act="delinvite" data-code="${esc(c)}" style="padding:4px 10px">Delete</button></td></tr>`).join("")}</tbody></table></div>`:""}
   </section>`;
 }
-function maintSwitch(){const m=S.maintMode==="old"?"old":"live";return`<div class="segnav" role="tablist" aria-label="Maintenance views"><button role="tab" data-mmode="live" aria-selected="${m==="live"}" class="${m==="live"?"on":""}">Live workshop (Google Sheet)</button><button role="tab" data-mmode="old" aria-selected="${m==="old"}" class="${m==="old"?"on":""}">Uploaded records analysis</button></div>`}
+function maintSwitch(){const m=S.maintMode==="old"?"old":"live";return`<div class="segnav" role="tablist" aria-label="Maintenance views"><button role="tab" data-mmode="live" aria-selected="${m==="live"}" class="${m==="live"?"on":""}">Live workshop (Google Sheet)</button><button role="tab" data-mmode="old" aria-selected="${m==="old"}" class="${m==="old"?"on":""}">Cost &amp; repeat analysis</button></div>`}
+/* ---------- Google Sheet data sources ---------- */
+const SRC_DEF={cars:["Car list","the tab with the car plate column (e.g. “Vehicle Plate”)","tab"],drivers:["Drivers","the tab with “Name” and “Driving License”","tab"],maint:["Maintenance records","the expense tab (Car No, Description, Actual Total Amount)","tab"]};
+const CARINFO_LINK="https://docs.google.com/spreadsheets/d/1G2kRupgdIhnBdld0idMPoZsrM7YriXR2MCwx5sarP5A/edit";
+const SRC_DEFAULTS={cars:{link:CARINFO_LINK,tab:"Car/Driver Info(New)"},drivers:{link:CARINFO_LINK,tab:"Driver Info Only"}};
+const MAINT_DEFAULT={link:"https://docs.google.com/spreadsheets/d/15OKX2Tbnbjeq_RhlWtr2mpf70lqfdYsuHxSQlKt-vLA/edit",tab:"Expense from PM (Main) All"};
+const sheetIdOf=l=>{const m=/\/d\/([a-zA-Z0-9_-]{20,})/.exec(l||"");return m?m[1]:(/^[a-zA-Z0-9_-]{20,}$/.test(l||"")?l:null)};
+async function fetchWB(link,tabs){
+  const X=await loadXLSX();const id=sheetIdOf(link);if(!id)throw new Error("The Google Sheet link isn’t valid");
+  let e1;
+  try{const r=await fetch(`https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
+    const buf=new Uint8Array(await r.arrayBuffer());if(buf[0]===60)throw new Error("not shared");return X.read(buf,{type:"array",cellDates:false})}
+  catch(e){e1=e}
+  const list=tabs&&tabs.length?tabs:[null];const wb=X.utils.book_new();
+  for(const t of list){
+    const r=await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${t?`&sheet=${encodeURIComponent(t)}`:""}`,{cache:"no-store"}).catch(()=>null);
+    if(!r||!r.ok)throw new Error(`Could not read the sheet (${e1&&e1.message||"error"}${r?`; HTTP ${r.status}`:""}). Share it as “Anyone with the link → Viewer”.`);
+    const txt=await r.text();if(/^\s*<!DOCTYPE html|<html/i.test(txt))throw new Error("Google asked for a sign-in: share the sheet as “Anyone with the link → Viewer”.");
+    const w=X.read(txt,{type:"string"});X.utils.book_append_sheet(wb,w.Sheets[w.SheetNames[0]],String(t||"Sheet1").slice(0,31));
+  }
+  return wb;
+}
+const tabKey=t=>String(t||"").toLowerCase().replace(/[^a-z0-9]+/g,"");
+function pickWS(wb,tab){if(tab){const n=wb.SheetNames.find(x=>x.trim().toLowerCase()===tab.trim().toLowerCase())||wb.SheetNames.find(x=>tabKey(x)===tabKey(tab))||wb.SheetNames.find(x=>tabKey(tab).startsWith(tabKey(x))&&tabKey(x).length>=8);if(!n)throw new Error(`Tab “${tab}” not found. Tabs in this sheet: ${wb.SheetNames.slice(0,10).join(", ")}`);return wb.Sheets[n]}return wb.Sheets[wb.SheetNames[0]]}
+function parseCarSheet(X,ws){
+  const rows=X.utils.sheet_to_json(ws,{header:1,raw:true,defval:null,blankrows:false});
+  const PLATE=["vehicle plate","car plate no","car plate no.","car no","car no.","plate no","plate no.","plate","car plate"];const hn=h=>String(h??"").trim().toLowerCase().replace(/\s+/g," ");
+  const hi=rows.slice(0,20).findIndex(r=>r&&r.some(c=>PLATE.includes(hn(c))));
+  if(hi<0)throw new Error("No header row with a car plate column (“Vehicle Plate” or “Car No”) found in the first 20 rows");
+  let loc=0,pl=0;const cols=rows[hi].map(h=>{const n=hn(h);if(PLATE.includes(n)){pl++;return pl===1?"plate":null}if(n==="location"){loc++;return loc===1?"location":"regLocation"}return HMAP[n]||null});
+  const out=[];rows.slice(hi+1).forEach(r=>{const d={};cols.forEach((k,i)=>{if(!k)return;const v=cellVal(X,k,r[i]);if(v!=null&&v!=="")d[k]=v});if(d.plate)out.push(d)});
+  return out;
+}
+function applySheet(k,X,wb,c){
+  if(k==="cars"){const rows=parseCarSheet(X,pickWS(wb,c.tab));if(!rows.length)throw new Error("No cars found under the header row");const used=new Set();
+    S.cars=rows.map(d=>{const base=String(d.plate).replace(/[^A-Za-z0-9_\-]+/g,"-").replace(/^-+|-+$/g,"")||"car";let id=base,n=2;while(used.has(id))id=base+"-"+(n++);used.add(id);return{...d,status:"Active",_id:id}});return S.cars.length}
+  if(k==="drivers"){const rows=readDriverSheet(X,pickWS(wb,c.tab));if(!rows||!rows.length)throw new Error("No header row with “Name” and “Driving License” found");S.drivers=rows.map(d=>({...d,_id:drvDocId(d)})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));return S.drivers.length}
+  if(k==="usage"){const t=today();const want=c.tabs?c.tabs.split(",").map(x=>x.trim().toLowerCase()).filter(Boolean):null;const out=new Map();
+    wb.SheetNames.forEach(n=>{if(want&&!want.includes(n.trim().toLowerCase()))return;const s=n.toLowerCase();const mi=MONTHS.findIndex(m=>new RegExp("(^|[^a-z])"+m).test(s));if(mi<0)return;
+      const rows=readFuelSheet(X,wb.Sheets[n]);if(!rows||!rows.length)return;const ym=/(20\d\d)/.exec(s);const y=ym?+ym[1]:(mi>t.getMonth()?t.getFullYear()-1:t.getFullYear());const m=`${y}-${pad(mi+1)}`;out.set(m,{month:m,rows,sheet:n,file:"Google Sheet",_id:m})});
+    if(!out.size)throw new Error("No month tabs found. Tab names must include a month, for example “Oct Summary”");S.usage=[...out.values()].sort((a,b)=>a.month.localeCompare(b.month));return out.size}
+  if(k==="maint"){const rows=readMaintSheet(X,pickWS(wb,c.tab));if(!rows||!rows.length)throw new Error("No header row with “Car No” and “Description” found");const g=new Map();rows.forEach(r=>{if(!g.has(r.m))g.set(r.m,[]);g.get(r.m).push(r)});
+    S.maint=[...g.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([month,rs])=>({month,rows:rs,_id:month,file:"Google Sheet"}));S._mCache=null;return rows.length}
+}
+function srcCfg(k){const s=(S.sources||{})[k];if(s&&s.link)return s;if(SRC_DEFAULTS[k])return{...SRC_DEFAULTS[k],auto:true,def:true};if(k==="maint"){const w=S.wsPortal;return{link:(w&&w.link)||MAINT_DEFAULT.link,tab:(w&&w.expenseTab)||MAINT_DEFAULT.tab,auto:true}}return null}
+let srcTimer=null;
+async function loadSources(only){
+  if(!S.db)return;S.srcStatus=S.srcStatus||{};S.srcOn=S.srcOn||{};
+  await Promise.all(Object.keys(SRC_DEF).filter(k=>!only||k===only).map(async k=>{
+    const c=srcCfg(k);if(!c){S.srcStatus[k]={state:"off"};return}
+    S.srcStatus[k]={...(S.srcStatus[k]||{}),state:"loading"};if(S.view==="updates")render();
+    try{const X=await loadXLSX();const tabs=k==="usage"?(c.tabs?c.tabs.split(",").map(x=>x.trim()).filter(Boolean):null):(c.tab?[c.tab]:null);
+      const wb=await fetchWB(c.link,tabs);const n=applySheet(k,X,wb,c);S.srcStatus[k]={state:"ok",n,at:new Date().toISOString()};S.srcOn[k]=true;document.body.classList.add("src-"+k)}
+    catch(e){S.srcStatus[k]={state:"err",msg:(e&&e.message)||String(e),at:new Date().toISOString()}}}));
+  S._mCache=null;if(S.srcOn.cars)S.loaded=true;
+  const ok=Object.values(S.srcStatus).some(x=>x.state==="ok");
+  $("#syncNote").textContent=`${active().length} cars · ${ok?`Google Sheets read ${new Date().toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})}`:today().toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"})}`;
+  render();const dd=$("#detailDlg");if(dd.open&&S.openId)openDetail(S.openId);
+  clearTimeout(srcTimer);srcTimer=setTimeout(()=>loadSources(),15*60*1000);
+}
+async function saveSource(k,val){
+  const next={...(S.sources||{})};if(val)next[k]=val;else delete next[k];
+  try{await S.db.collection("settings").doc("sources").set({value:next,updatedAt:new Date().toISOString(),updatedBy:S.myId||""});toast(val?"Saved. Reading the sheet…":"Unlinked")}
+  catch(ex){toast(ex&&ex.code==="invalid_argument"?"Only Level 2 users can change data sources.":"Couldn’t save. Try again.")}
+}
+function vSources(){
+  const can=!!(S.perm&&S.perm.level==="2");const st=S.srcStatus||{};
+  const row=k=>{const [label,hint,kind]=SRC_DEF[k];const c=srcCfg(k);const s=st[k]||{state:c?"loading":"off"};const id=c&&sheetIdOf(c.link);
+    const pill=s.state==="ok"?`<span class="pill ok">Live · ${fmtN(s.n)} ${k==="usage"?"months":k==="maint"?"lines":"rows"}</span>`:s.state==="err"?`<span class="pill bad">Can’t read</span>`:s.state==="loading"?`<span class="pill warn">Reading…</span>`:`<span class="pill none">Not linked</span>`;
+    return`<section class="panel srcrow"><div class="srchead"><h2>${esc(label)}</h2>${pill}${s.at&&s.state!=="loading"?`<span class="sub">${esc(new Date(s.at).toLocaleString(undefined,{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))}</span>`:""}${id?`<a class="btn ghost" href="https://docs.google.com/spreadsheets/d/${id}/edit" target="_blank" rel="noopener" style="margin-left:auto;padding:4px 10px">Open sheet ↗</a>`:""}</div>
+     ${s.state==="err"?`<p class="notice bad" style="margin:8px 0">${esc(s.msg)}</p>`:""}
+     ${!c?`<p class="sub" style="margin:6px 0">Not linked yet: the portal shows the data saved earlier.${can?" Paste the Google Sheet link below.":" A Level 2 user can link the sheet."}</p>`:c.auto?`<p class="sub" style="margin:6px 0">${c.def?`Using the Car info sheet, tab “${esc(c.tab)}”.`:`Using the Maintenance dashboard’s sheet (${esc(c.tab)}).`} Paste another link below to change it.</p>`:""}
+     ${can?`<div class="srcform"><label>Google Sheet link<input class="field" data-src-link="${k}" value="${esc(c&&!c.auto?c.link:"")}" placeholder="https://docs.google.com/spreadsheets/d/…/edit"></label>
+       <label>${kind==="tabs"?"Tabs":"Tab name"}<input class="field" data-src-tab="${k}" value="${esc(c&&!c.auto?(kind==="tabs"?c.tabs||"":c.tab||""):"")}" placeholder="${kind==="tabs"?"blank = all month tabs":"blank = first tab"}"></label>
+       <div class="srcbtns"><button class="btn primary" data-act="srcsave" data-k="${k}">Save &amp; read</button>${(S.sources||{})[k]?`<button class="btn ghost" data-act="srcclear" data-k="${k}">Unlink</button>`:""}</div></div>
+       <p class="sub" style="margin:6px 0 0">${esc(kind==="tabs"?"Tabs: ":"Tab: ")}${esc(hint)}.</p>`:c&&!c.auto?`<p class="sub" style="margin:6px 0 0">${esc(c.link)}${c.tab?` · tab “${esc(c.tab)}”`:""}${c.tabs?` · tabs “${esc(c.tabs)}”`:""}</p>`:""}
+    </section>`};
+  return`<section class="panel"><h2>Data sources</h2><p class="hint">The portal reads these Google Sheets directly, when it opens, every 15 minutes, and when you click Refresh. <strong>Fuel &amp; km</strong> is still uploaded in the Driving &amp; fuel tab. Each sheet must be shared as <strong>Anyone with the link → Viewer</strong> (Google Sheets → Share → General access). Daily issues are kept in the portal itself.</p>
+   <p style="margin:0"><button class="btn primary" data-act="srcrefresh">⟳ Refresh all now</button></p></section>
+   ${Object.keys(SRC_DEF).map(row).join("")}`;
+}
 /* ---------- Render ---------- */
 function render(){
   document.querySelectorAll("nav.tabs a").forEach(a=>{const v=a.getAttribute("href").slice(1);a.hidden=a.hasAttribute("data-l2nav")?!(S.perm&&S.perm.level==="2"):!canSee(v)});
@@ -2616,7 +2704,7 @@ function render(){
   if(!S.loaded){m.innerHTML=`<div class="empty">Loading fleet…</div>`;return}
   if(!S.cars.length){m.innerHTML=`<div class="empty"><h2>No cars yet</h2><p>Add your first car to start tracking car, licence and commercial life.</p>${S.canWrite?`<p><button class="btn primary" data-act="upload">Upload Excel</button> <button class="btn" data-act="add">Add new car</button></p>`:""}</div>`;return}
   const focusId=document.activeElement&&document.activeElement.id;const caret=["q","uq","mq","dq"].includes(focusId)?document.activeElement.selectionStart:null;
-  m.innerHTML=updBanner()+({overview:vOverview,cars:vCars,usage:vUsage,maint:()=>maintSwitch()+vMaint(),drivers:vDrivers,updates:vUpdates,access:vAccess,groups:vGroups,renewals:vRenewals,history:vHistory}[S.view]||vOverview)();
+  m.innerHTML=updBanner()+({overview:vOverview,cars:vCars,usage:vUsage,maint:()=>maintSwitch()+vMaint(),drivers:vDrivers,updates:vSources,access:vAccess,groups:vGroups,renewals:vRenewals,history:vHistory}[S.view]||vOverview)();
   if(["q","uq","mq","dq"].includes(focusId)){const q=document.getElementById(focusId);if(q){q.focus();if(caret!=null)q.setSelectionRange(caret,caret)}}
 }
 
@@ -2974,7 +3062,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.group!=null){S.openGroup=S.openGroup===t.dataset.group?null:t.dataset.group;render();return}
   const a=t.dataset.act,id=t.dataset.id;
   const P=S.perm;if(P){if(["upload","fuelup","maintup","drvup"].includes(a)&&!P.upload){toast("You don’t have upload access");return}if(["delete","mdel"].includes(a)&&!P.del){toast("Only Level 2 can delete");return}if(a==="exportall"&&!P.export){toast("You don’t have export access");return}}
-  if(a==="exportall")exportAll();else if(a==="drvup")$("#drvIn").click();else if(a==="mkinvite")createInvite();else if(a==="redeem")redeemCode();else if(a==="delinvite"){const c=t.dataset.code;if(confirm(`Delete invite ${c}? People who already joined keep their access.`))S.db.collection("access").doc("invite_"+c).delete().catch(()=>toast("Only Level 2 users can delete invites."))}else if(a==="sellall"){S.sellAll=!S.sellAll;render()}else if(a==="sellclear"){saveSellList(new Set())}else if(a==="sellrecs"){const SS=sellScores();const n=new Set(S.sellList);if(SS)SS.list.filter(x=>x.tier[1].startsWith("Sell")).forEach(x=>n.add(x.carId));saveSellList(n)}else if(a==="ovall"){document.querySelectorAll("details[data-ov]").forEach(d=>{d.open=t.dataset.v==="1"})}else if(a==="gorep"){const el=document.getElementById("repeats");if(el)el.scrollIntoView({block:"start"})}else if(a==="rmore"){S.rLimit+=50;render()}else if(a==="maintup")$("#maintIn").click();else if(a==="mmore"){S.mLimit+=200;render()}else if(a==="mdel")delMaintMonth(t.dataset.month);else if(a==="fuelup")$("#fuelIn").click();else if(a==="extlic")openExtend(id,"lic");else if(a==="extcom")openExtend(id,"com");else if(a==="upload")$("#fileIn").click();else if(a==="add")openForm();else if(a==="edit")openForm(id);else if(a==="sell")openSell(id);else if(a==="restore")restore(id);else if(a==="delete")del(id);
+  if(a==="exportall")exportAll();else if(a==="drvup")$("#drvIn").click();else if(a==="srcrefresh"){loadSources();toast("Reading the Google Sheets…")}else if(a==="srcsave"){const k=t.dataset.k;const l=(document.querySelector(`[data-src-link="${k}"]`)||{}).value||"";const tb=((document.querySelector(`[data-src-tab="${k}"]`)||{}).value||"").trim();if(!sheetIdOf(l.trim())){toast("Paste a valid Google Sheet link");return}saveSource(k,SRC_DEF[k][2]==="tabs"?{link:l.trim(),tabs:tb}:{link:l.trim(),tab:tb})}else if(a==="srcclear"){if(confirm("Unlink this sheet? The portal will show the data saved earlier."))saveSource(t.dataset.k,null)}else if(a==="mkinvite")createInvite();else if(a==="redeem")redeemCode();else if(a==="delinvite"){const c=t.dataset.code;if(confirm(`Delete invite ${c}? People who already joined keep their access.`))S.db.collection("access").doc("invite_"+c).delete().catch(()=>toast("Only Level 2 users can delete invites."))}else if(a==="sellall"){S.sellAll=!S.sellAll;render()}else if(a==="sellclear"){saveSellList(new Set())}else if(a==="sellrecs"){const SS=sellScores();const n=new Set(S.sellList);if(SS)SS.list.filter(x=>x.tier[1].startsWith("Sell")).forEach(x=>n.add(x.carId));saveSellList(n)}else if(a==="ovall"){document.querySelectorAll("details[data-ov]").forEach(d=>{d.open=t.dataset.v==="1"})}else if(a==="gorep"){const el=document.getElementById("repeats");if(el)el.scrollIntoView({block:"start"})}else if(a==="rmore"){S.rLimit+=50;render()}else if(a==="maintup")$("#maintIn").click();else if(a==="mmore"){S.mLimit+=200;render()}else if(a==="mdel")delMaintMonth(t.dataset.month);else if(a==="fuelup")$("#fuelIn").click();else if(a==="extlic")openExtend(id,"lic");else if(a==="extcom")openExtend(id,"com");else if(a==="upload")$("#fileIn").click();else if(a==="add")openForm();else if(a==="edit")openForm(id);else if(a==="sell")openSell(id);else if(a==="restore")restore(id);else if(a==="delete")del(id);
 });
 document.addEventListener("keydown",e=>{if(e.key!=="Enter")return;const tr=e.target.closest&&e.target.closest("tr[data-car],tr[data-group],tr[data-drv],[data-sdpick],[data-sfpick],[data-smpick]");if(tr)tr.click()});
 document.addEventListener("input",e=>{if(e.target.id==="q"){S.q=e.target.value;render()}else if(e.target.id==="uq"){S.uQ=e.target.value;render()}else if(e.target.id==="dq"){S.dQ=e.target.value;render()}else if(e.target.id==="accSearch"){accSearch(e.target.value)}else if(e.target.id==="mq"){S.mQ=e.target.value;S.mLimit=200;render()}});
@@ -2998,6 +3086,7 @@ route();
   S.db=db;
   const timer=setTimeout(()=>{if(!S.loaded){$("#syncNote").textContent="Can't reach the fleet data yet — still trying";}},10000);
   db.collection("cars").onSnapshot(snap=>{
+    if(S.srcOn&&S.srcOn.cars){S.loaded=true;clearTimeout(timer);return}
     S.cars=snap.docs.map(d=>({...d.data(),_id:d.id}));
     if(!snap.metadata.fromCache){S.loaded=true;clearTimeout(timer)}else if(S.cars.length)S.loaded=true;
     $("#syncNote").textContent=`${active().length} cars · ${today().toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"})}${S.levelKnown?` · ${LEVELS[S.level][0]}`:""}`;
@@ -3009,12 +3098,13 @@ route();
     if(S.user){const ids=[...new Set(S.log.map(l=>l.by).filter(Boolean))].filter(i=>!(i in S.names));if(ids.length){try{const ps=await S.user.profiles(ids);ids.forEach(i=>S.names[i]=(ps[i]&&ps[i].name)||"Someone")}catch(_){}}}
     if(S.view==="history")render();
   },()=>{});
-  db.collection("drivers").onSnapshot(snap=>{S.drivers=snap.docs.map(d=>({...d.data(),_id:d.id})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));if(["drivers","overview","groups"].includes(S.view))render();const dd=$("#detailDlg");if(dd.open&&S.openId)openDetail(S.openId)},()=>{});
+  db.collection("drivers").onSnapshot(snap=>{if(S.srcOn&&S.srcOn.drivers)return;S.drivers=snap.docs.map(d=>({...d.data(),_id:d.id})).sort((a,b)=>String(a.name).localeCompare(String(b.name)));if(["drivers","overview","groups"].includes(S.view))render();const dd=$("#detailDlg");if(dd.open&&S.openId)openDetail(S.openId)},()=>{});
   db.collection("meta").doc("weekly").onSnapshot(d=>{S.updMeta=(d.exists&&d.data())||{};S.metaLoaded=true;render()},()=>{});
   db.collection("updates").orderBy("at","desc").limit(200).onSnapshot(async snap=>{S.updHist=snap.docs.map(d=>({...d.data(),_id:d.id}));if(S.user){const ids=[...new Set(S.updHist.map(h=>h.by).concat(Object.values(S.updMeta).map(m=>m&&m.by)).filter(Boolean))].filter(i=>!(i in S.names));if(ids.length){try{const ps=await S.user.profiles(ids);ids.forEach(i=>S.names[i]=(ps[i]&&ps[i].name)||"Someone")}catch(_){}}}if(S.view==="updates")render()},()=>{});
   db.collection("plans").doc("sell").onSnapshot(d=>{S.sellList=new Set((d.exists&&d.data().ids)||[]);if(S.view==="overview")render()},()=>{});
-  db.collection("maint").onSnapshot(snap=>{S.maint=snap.docs.map(d=>({...d.data(),_id:d.id})).filter(d=>d.month);S._mCache=null;if(["maint","overview","groups"].includes(S.view))render();const dd=$("#detailDlg");if(dd.open&&S.openId)openDetail(S.openId)},()=>{});
-  db.collection("usage").onSnapshot(snap=>{S.usage=snap.docs.map(d=>({...d.data(),_id:d.id})).filter(u=>u.month).sort((a,b)=>a.month.localeCompare(b.month));if(["usage","overview","maint","groups"].includes(S.view))render();const dd=$("#detailDlg");if(dd.open&&S.openId)openDetail(S.openId)},()=>{});
+  db.collection("settings").onSnapshot(snap=>{const m={};snap.docs.forEach(d=>m[d.id]=d.data());S.sources=(m.sources&&m.sources.value)||{};S.wsPortal=(m.workshop_portal&&m.workshop_portal.value)||null;const sig=JSON.stringify([S.sources,S.wsPortal]);if(sig!==S._srcSig){S._srcSig=sig;loadSources()}else if(S.view==="updates")render()},()=>loadSources());
+  db.collection("maint").onSnapshot(snap=>{if(S.srcOn&&S.srcOn.maint)return;S.maint=snap.docs.map(d=>({...d.data(),_id:d.id})).filter(d=>d.month);S._mCache=null;if(["maint","overview","groups"].includes(S.view))render();const dd=$("#detailDlg");if(dd.open&&S.openId)openDetail(S.openId)},()=>{});
+  db.collection("usage").onSnapshot(snap=>{if(S.srcOn&&S.srcOn.usage)return;S.usage=snap.docs.map(d=>({...d.data(),_id:d.id})).filter(u=>u.month).sort((a,b)=>a.month.localeCompare(b.month));if(["usage","overview","maint","groups"].includes(S.view))render();const dd=$("#detailDlg");if(dd.open&&S.openId)openDetail(S.openId)},()=>{});
   db.collection("renewals").orderBy("at","desc").limit(2000).onSnapshot(async snap=>{
     S.renewals=snap.docs.map(d=>({...d.data(),_id:d.id}));
     if(S.user){const ids=[...new Set(S.renewals.map(r=>r.by).filter(Boolean))].filter(i=>!(i in S.names));if(ids.length){try{const ps=await S.user.profiles(ids);ids.forEach(i=>S.names[i]=(ps[i]&&ps[i].name)||"Someone")}catch(_){}}}
