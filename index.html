@@ -2609,7 +2609,7 @@ function inviteSection(){
 function maintSwitch(){const m=S.maintMode==="old"?"old":"live";return`<div class="segnav" role="tablist" aria-label="Maintenance views"><button role="tab" data-mmode="live" aria-selected="${m==="live"}" class="${m==="live"?"on":""}">Live workshop (Google Sheet)</button><button role="tab" data-mmode="old" aria-selected="${m==="old"}" class="${m==="old"?"on":""}">Cost &amp; repeat analysis</button></div>`}
 /* ---------- Google Sheet data sources ---------- */
 const SRC_DEF={cars:["Car list","the tab with the car plate column (e.g. “Vehicle Plate”)","tab"],drivers:["Drivers","the tab with “Name” and “Driving License”","tab"],maint:["Maintenance records","the expense tab (Car No, Description, Actual Total Amount)","tab"]};
-const CARINFO_LINK="https://docs.google.com/spreadsheets/d/1G2kRupgdIhnBdld0idMPoZsrM7YriXR2MCwx5sarP5A/edit";
+const CARINFO_LINK="https://docs.google.com/spreadsheets/d/e/2PACX-1vSkZzNkL4vqVLlVE95BR04zytfO4d9VnUmWtDdrJpPqjlO_4QhaPdXt72sfNWCV5GDNH0lwotifyn-j/pub?output=csv";
 const SRC_DEFAULTS={cars:{link:CARINFO_LINK,tab:"Car Info"},drivers:{link:CARINFO_LINK,tab:"Driver Info"}};
 const MAINT_DEFAULT={link:"https://docs.google.com/spreadsheets/d/15OKX2Tbnbjeq_RhlWtr2mpf70lqfdYsuHxSQlKt-vLA/edit",tab:"Expense from PM (Main) All"};
 const sheetIdOf=l=>{const m=/\/d\/([a-zA-Z0-9_-]{20,})/.exec(l||"");return m?m[1]:(/^[a-zA-Z0-9_-]{20,}$/.test(l||"")?l:null)};
@@ -2617,11 +2617,21 @@ const isPubLink=l=>/docs\.google\.com\/spreadsheets\/d\/e\/[A-Za-z0-9_-]+\/pub/.
 const pubCsvUrl=l=>{const u=new URL(l.trim());u.pathname=u.pathname.replace(/\/pubhtml$/,"/pub");u.searchParams.set("output","csv");if(u.searchParams.get("gid"))u.searchParams.set("single","true");return u.toString()};
 async function fetchWB(link,tabs){
   const X=await loadXLSX();
-  if(isPubLink(link)){ // "File → Share → Publish to web" CSV link: works without public sharing
-    let r;try{r=await fetch(pubCsvUrl(link),{cache:"no-store",credentials:"omit"})}catch(e){throw new Error(`The browser couldn’t reach the published sheet (${e.message}).`)}
-    if(!r.ok)throw new Error(`The published link didn’t work (HTTP ${r.status}). In the sheet: File → Share → Publish to web → check the tab is still published.`);
-    const txt=await r.text();if(/^\s*<!DOCTYPE html|<html/i.test(txt))throw new Error("This published link gives a web page, not CSV. In Publish to web, choose the tab and “Comma-separated values (.csv)”, then copy that link.");
-    const w=X.read(txt,{type:"string"});const wb=X.utils.book_new();X.utils.book_append_sheet(wb,w.Sheets[w.SheetNames[0]],"Published");wb.__pub=true;return wb;
+  if(isPubLink(link)){ // "File → Share → Publish to web" link: works without public sharing
+    const u=new URL(link.trim());u.pathname=u.pathname.replace(/\/pubhtml$/,"/pub");
+    if(u.searchParams.get("gid")){ // one published tab → CSV
+      u.searchParams.set("output","csv");u.searchParams.set("single","true");
+      let r;try{r=await fetch(u.toString(),{cache:"no-store",credentials:"omit"})}catch(e){throw new Error(`The browser couldn’t reach the published sheet (${e.message}).`)}
+      if(!r.ok)throw new Error(`The published link didn’t work (HTTP ${r.status}). In the sheet: File → Share → Publish to web → check it is still published.`);
+      const txt=await r.text();if(/^\s*<!DOCTYPE html|<html/i.test(txt))throw new Error("This published link gives a web page, not CSV. In Publish to web choose “Comma-separated values (.csv)”.");
+      const w=X.read(txt,{type:"string"});const wb=X.utils.book_new();X.utils.book_append_sheet(wb,w.Sheets[w.SheetNames[0]],"Published");wb.__pub=true;return wb;
+    }
+    // whole published document → Excel, then pick the tab by name
+    u.searchParams.delete("single");u.searchParams.set("output","xlsx");
+    let r;try{r=await fetch(u.toString(),{cache:"no-store",credentials:"omit"})}catch(e){throw new Error(`The browser couldn’t reach the published sheet (${e.message}).`)}
+    if(!r.ok)throw new Error(`The published link didn’t work (HTTP ${r.status}). In the sheet: File → Share → Publish to web → check it is still published.`);
+    const buf=new Uint8Array(await r.arrayBuffer());if(buf[0]===60)throw new Error("The published link gave a web page instead of data. Re-publish the sheet and copy the new link.");
+    return X.read(buf,{type:"array",cellDates:false});
   }
   const id=sheetIdOf(link);if(!id)throw new Error("The Google Sheet link isn’t valid");
   const list=tabs&&tabs.length?tabs:[null];const errs=[];
