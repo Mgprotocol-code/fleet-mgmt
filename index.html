@@ -2610,7 +2610,7 @@ function maintSwitch(){const m=S.maintMode==="old"?"old":"live";return`<div clas
 /* ---------- Google Sheet data sources ---------- */
 const SRC_DEF={cars:["Car list","the tab with the car plate column (e.g. “Vehicle Plate”)","tab"],drivers:["Drivers","the tab with “Name” and “Driving License”","tab"],maint:["Maintenance records","the expense tab (Car No, Description, Actual Total Amount)","tab"]};
 const CARINFO_LINK="https://docs.google.com/spreadsheets/d/1G2kRupgdIhnBdld0idMPoZsrM7YriXR2MCwx5sarP5A/edit";
-const SRC_DEFAULTS={cars:{link:CARINFO_LINK,tab:"Car/Driver Info(New)"},drivers:{link:CARINFO_LINK,tab:"Driver Info Only"}};
+const SRC_DEFAULTS={cars:{link:CARINFO_LINK,tab:"Car Info"},drivers:{link:CARINFO_LINK,tab:"Driver Info"}};
 const MAINT_DEFAULT={link:"https://docs.google.com/spreadsheets/d/15OKX2Tbnbjeq_RhlWtr2mpf70lqfdYsuHxSQlKt-vLA/edit",tab:"Expense from PM (Main) All"};
 const sheetIdOf=l=>{const m=/\/d\/([a-zA-Z0-9_-]{20,})/.exec(l||"");return m?m[1]:(/^[a-zA-Z0-9_-]{20,}$/.test(l||"")?l:null)};
 async function fetchWB(link,tabs){
@@ -2622,14 +2622,14 @@ async function fetchWB(link,tabs){
   const list=tabs&&tabs.length?tabs:[null];const wb=X.utils.book_new();
   for(const t of list){
     const r=await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${t?`&sheet=${encodeURIComponent(t)}`:""}`,{cache:"no-store"}).catch(()=>null);
-    if(!r||!r.ok)throw new Error(`Could not read the sheet (${e1&&e1.message||"error"}${r?`; HTTP ${r.status}`:""}). Share it as “Anyone with the link → Viewer”.`);
+    if(!r||!r.ok)throw new Error(`Google didn’t allow the portal to read this sheet (${e1&&e1.message||"error"}${r?`; HTTP ${r.status}`:""}). Open the sheet → Share → General access → “Anyone with the link” → Viewer.`);
     const txt=await r.text();if(/^\s*<!DOCTYPE html|<html/i.test(txt))throw new Error("Google asked for a sign-in: share the sheet as “Anyone with the link → Viewer”.");
     const w=X.read(txt,{type:"string"});X.utils.book_append_sheet(wb,w.Sheets[w.SheetNames[0]],String(t||"Sheet1").slice(0,31));
   }
   return wb;
 }
 const tabKey=t=>String(t||"").toLowerCase().replace(/[^a-z0-9]+/g,"");
-function pickWS(wb,tab){if(tab){const n=wb.SheetNames.find(x=>x.trim().toLowerCase()===tab.trim().toLowerCase())||wb.SheetNames.find(x=>tabKey(x)===tabKey(tab))||wb.SheetNames.find(x=>tabKey(tab).startsWith(tabKey(x))&&tabKey(x).length>=8);if(!n)throw new Error(`Tab “${tab}” not found. Tabs in this sheet: ${wb.SheetNames.slice(0,10).join(", ")}`);return wb.Sheets[n]}return wb.Sheets[wb.SheetNames[0]]}
+function pickWS(wb,tab){if(tab){const K=tabKey(tab);const byLen=a=>[...a].sort((x,y)=>x.length-y.length)[0];const n=wb.SheetNames.find(x=>x.trim().toLowerCase()===tab.trim().toLowerCase())||wb.SheetNames.find(x=>tabKey(x)===K)||byLen(wb.SheetNames.filter(x=>tabKey(x).startsWith(K)))||byLen(wb.SheetNames.filter(x=>tabKey(x).includes(K)));if(!n)throw new Error(`Tab “${tab}” not found. Tabs in this sheet: ${wb.SheetNames.slice(0,10).join(", ")}`);return wb.Sheets[n]}return wb.Sheets[wb.SheetNames[0]]}
 function parseCarSheet(X,ws){
   const rows=X.utils.sheet_to_json(ws,{header:1,raw:true,defval:null,blankrows:false});
   const PLATE=["vehicle plate","car plate no","car plate no.","car no","car no.","plate no","plate no.","plate","car plate"];const hn=h=>String(h??"").trim().toLowerCase().replace(/\s+/g," ");
