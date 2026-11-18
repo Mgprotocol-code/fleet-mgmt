@@ -222,6 +222,15 @@ body.p-nowrite [data-act=sellrecs],body.p-nowrite [data-act=sellclear],body.p-no
 .lvlkey{display:flex;flex-direction:column;gap:6px;margin-top:14px;font-size:13.5px;color:var(--muted)}
 #issuesHost[hidden]{display:none!important}
 #maintHost[hidden]{display:none!important}
+.kmbar{display:inline-block;width:70px;height:7px;background:var(--sunk);border-radius:3px;overflow:hidden;vertical-align:middle}.kmbar span{display:block;height:100%;background:var(--accent)}
+.drvnow{background:var(--sunk);border-radius:8px;padding:10px 12px;margin-bottom:6px}
+.mplatebar input{flex:1 1 260px;max-width:420px;font-size:15px}
+.rank.rc li{grid-template-columns:26px 112px minmax(0,1fr) 46px;align-items:start}
+.rc-d>summary{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px}.rc-d>summary::-webkit-details-marker{display:none}
+.rc-t{font-size:14px}.rc-body{padding:8px 0 4px}
+.rc-lines{list-style:none;margin:0 0 8px;padding:0;font-size:13px}.rc-lines li{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:10px;padding:3px 0;border-bottom:1px solid var(--line)}.rc-lines li>span:first-child{white-space:nowrap;color:var(--muted)}
+.rank .rc-lines li{display:grid;grid-template-columns:104px minmax(0,1fr) auto;gap:10px;padding:4px 0;border-radius:0;background:none!important;align-items:start}
+.rcgrid{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr);gap:20px}@media (max-width:1000px){.rcgrid{grid-template-columns:1fr}}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}
 .kpis.sm{grid-template-columns:repeat(auto-fit,minmax(78px,1fr));margin-bottom:12px;border-radius:8px}
 .kpi{all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:2px}
@@ -1304,7 +1313,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 "use strict";
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const S={cars:[],log:[],renewals:[],usage:[],uQ:"",uOwner:"",uSort:"total",uDir:-1,uFlag:"",uThr:"20",carView:"cards",mMonth:"",majorAt:"300000",mAllCars:false,mAllCpk:false,mAllRep:false,invites:{},lastCode:"",people:{},accessMap:{},accessDefault:null,perm:null,plat:null,level:1,levelKnown:false,updMeta:{},updHist:[],sumSec:"cars",sdGroup:"supervisor",sfGroup:"owner",smGroup:"cat",drivers:[],dQ:"",dOwner:"",dSup:"",dFlag:"",dSort:"lic",dDir:1,sumMet:"n",sellGroup:"model",sellList:new Set(),sellAll:false,uOff:"40",ovOpen:new Set(),maint:[],mQ:"",mOwner:"",mCat:"",mPeriod:"12",mLimit:200,mSort:"amt",mDir:-1,rMatch:"desc",rDays:"60",rRout:"hide",rLimit:50,loaded:false,error:null,db:null,user:null,canWrite:true,names:{},
+const S={cars:[],log:[],renewals:[],usage:[],uQ:"",uOwner:"",uSort:"total",uDir:-1,uFlag:"",uThr:"20",mPlate:"",mRout:"hide",mRcCat:"",mAllRc:false,mAllRcc:false,mAllJobs:false,carView:"cards",mMonth:"",majorAt:"300000",mAllCars:false,mAllCpk:false,mAllRep:false,invites:{},lastCode:"",people:{},accessMap:{},accessDefault:null,perm:null,plat:null,level:1,levelKnown:false,updMeta:{},updHist:[],sumSec:"cars",sdGroup:"supervisor",sfGroup:"owner",smGroup:"cat",drivers:[],dQ:"",dOwner:"",dSup:"",dFlag:"",dSort:"lic",dDir:1,sumMet:"n",sellGroup:"model",sellList:new Set(),sellAll:false,uOff:"40",ovOpen:new Set(),maint:[],mQ:"",mOwner:"",mCat:"",mPeriod:"12",mLimit:200,mSort:"amt",mDir:-1,rMatch:"desc",rDays:"60",rRout:"hide",rLimit:50,loaded:false,error:null,db:null,user:null,canWrite:true,names:{},
   view:"overview",q:"",fOwner:"",fLoc:"",fBrand:"",fFlag:"",sort:"urg",dir:1,groupBy:"owner",openGroup:null};
 
 /* ---------- Field config ---------- */
@@ -2269,6 +2278,7 @@ function readMaintSheet(X,ws){
   if(hi<0)return null;
   const seen={};const cols=raw[hi].map(h=>{const n=mHead(h);seen[n]=(seen[n]||0)+1;if(n==="car type")return seen[n]===1?"ct":null;return seen[n]===1?(MMAP[n]||null):null});
   raw[hi].forEach((h,i)=>{if(!cols[i]&&/arriv|arrive|car in date|in date|received/.test(mHead(h))&&!cols.includes("arr"))cols[i]="arr"});if(!cols.includes("arr")){if(cols[31]&&cols[31]!=="arr")cols[cols.indexOf(cols[31])]=null;cols[31]="arr"}
+  for(let k=0;k<cols.length;k++)if(cols[k]==="bc")cols[k]=null;cols[25]="bc"; // column Z = repair category
   const arrCol=cols.indexOf("arr");MAINT_ARR_INFO={col:arrCol,letter:arrCol>=0?X.utils.encode_col(arrCol):"?",header:String(raw[hi][arrCol]??"(no heading)"),filled:0,read:0,samples:[]};
   const out=[];
   raw.forEach((r,ri)=>{if(ri<=hi||!r)return;const t=txt[ri]||[];const d={};
@@ -2888,6 +2898,118 @@ function durationPanel(J,pBtn,carName,cur){
      ${openArr.length?`<h3 class="up-sec">Arrived, not done yet</h3><ul class="att">${openArr.slice(0,10).map(j=>`<li>${pBtn(j.plate)}<div class="what">${esc([...j.cats].join(", ")||"Job")}<small>arrived ${fmtD(j.arr)} · ${esc(j.sup||"")}</small></div><span class="pill ${j.days>14?"bad":"warn"}">${j.days} d so far</span></li>`).join("")}</ul>`:""}</div>
    </div></section>`;
 }
+/* ---------- Repeated categories (column Z) & car plate report ---------- */
+const npk=p=>String(p||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+function repeatCats(R,hideRoutine){
+  const m=new Map();
+  R.forEach(r=>{const c=String(r.bc||"").trim();if(!c)return;if(hideRoutine&&ROUTINE.has(c))return;const k=npk(r.plate)+"|"+c.toLowerCase();let x=m.get(k);
+    if(!x){x={plate:r.plate,cat:c,dates:new Set(),amt:0,sup:new Map(),lines:[]};m.set(k,x)}
+    x.dates.add(r.date||r.m+"-01");x.amt+=+r.amt||0;if(r.sup)x.sup.set(r.sup,(x.sup.get(r.sup)||0)+1);x.lines.push(r)});
+  return[...m.values()].filter(x=>x.dates.size>=2).map(x=>{const ds=[...x.dates].sort();const gaps=[];for(let i=1;i<ds.length;i++)gaps.push(Math.round((parseD(ds[i])-parseD(ds[i-1]))/DAY));
+    return{...x,ds,times:ds.length,minGap:Math.min(...gaps),avgGap:gaps.reduce((a,b)=>a+b,0)/gaps.length,first:ds[0],last:ds[ds.length-1],topSup:[...x.sup.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]).slice(0,2)}})
+   .sort((a,b)=>b.times-a.times||b.amt-a.amt);
+}
+function repeatCatPanel(R,pBtn,carName){
+  const hide=S.mRout!=="show";let L=repeatCats(R,hide);
+  const byCat=new Map();L.forEach(x=>{const c=byCat.get(x.cat)||{k:x.cat,cars:0,visits:0,amt:0};c.cars++;c.visits+=x.times;c.amt+=x.amt;byCat.set(x.cat,c)});
+  const cats=[...byCat.values()].sort((a,b)=>b.cars-a.cars||b.visits-a.visits);
+  const selCat=S.mRcCat&&byCat.has(S.mRcCat)?S.mRcCat:"";if(selCat)L=L.filter(x=>x.cat===selCat);
+  const shown=S.mAllRc?L:L.slice(0,5),cshown=S.mAllRcc?cats:cats.slice(0,5);
+  return`<section class="panel hl" id="repeats"><div class="dch"><h2>Repeated categories · all records <span class="sub" style="font-family:var(--sans);font-size:13px;font-weight:400">(column Z)</span></h2>${sel("mRout",S.mRout||"hide",[["hide","Hide routine oil services"],["show","Include routine oil services"]],"Routine services")}</div>
+   <p class="hint">The same repair category on the same car on 2 or more different days, over the whole history. Most repeated first.</p>
+   <div class="rcgrid">
+    <div><h3 class="dh3">Cars with repeated categories${selCat?` · <span class="pill warn">${esc(selCat)}</span> <button class="btn ghost" data-act="rcclear" style="padding:2px 8px;font-size:12px">All categories</button>`:""}</h3>
+     ${shown.length?`<ol class="rank rc">${shown.map((x,i)=>`<li class="${i<3&&!S.mAllRc?"top3":""}"><span class="rk">${i+1}</span>${pBtn(x.plate)}<details class="rc-d"><summary><span class="rc-t"><strong>${esc(x.cat)}</strong> · ${x.times} times · ${fmtN(x.amt)} MMK</span><span class="sub">${esc(carName(x.plate))} · ${fmtD(x.first)} → ${fmtD(x.last)} · every ~${fmtN(x.avgGap)} days (shortest ${x.minGap})</span></summary>
+        <div class="rc-body"><div class="chips">${x.ds.map(d=>`<span class="dchip">${fmtD(d)}</span>`).join("")}</div>
+        <p class="sub" style="margin:6px 0">Main supplier${x.topSup.length>1?"s":""}: ${esc(x.topSup.join(", ")||"—")}</p>
+        <ul class="rc-lines">${x.lines.slice().sort((a,b)=>String(b.date||b.m).localeCompare(String(a.date||a.m))).slice(0,12).map(r=>`<li><span>${r.date?fmtD(r.date):monLabel(r.m)}</span><span>${esc(r.desc||"")}</span><span class="num">${fmtN(r.amt)}</span></li>`).join("")}${x.lines.length>12?`<li class="sub">and ${x.lines.length-12} more lines</li>`:""}</ul>
+        <button class="btn ghost" data-act="mplatego" data-plate="${esc(x.plate)}" style="padding:3px 10px;font-size:13px">See all maintenance for ${esc(x.plate)} →</button></div></details><span class="rk-v">${x.times}×</span></li>`).join("")}</ol>
+       ${L.length>5?`<p style="margin:8px 0 0"><button class="btn ghost" data-act="mallrc" style="padding:4px 12px">${S.mAllRc?"Show top 5":`Show all ${L.length}`}</button></p>`:""}`:`<p class="okline">No repeated categories.</p>`}</div>
+    <div><h3 class="dh3">By category</h3>
+     ${cats.length?`<div class="tw"><table><thead><tr><th>Category</th><th class="num">Cars</th><th class="num">Visits</th><th class="num">Spend (MMK)</th></tr></thead><tbody>${cshown.map(c=>`<tr data-rccat="${esc(c.k)}" tabindex="0" class="${selCat===c.k?"flag-warn":""}"><td><strong>${esc(c.k)}</strong></td><td class="num">${c.cars}</td><td class="num">${c.visits}</td><td class="num">${fmtN(c.amt)}</td></tr>`).join("")}</tbody></table></div>
+       ${cats.length>5?`<p style="margin:8px 0 0"><button class="btn ghost" data-act="mallrcc" style="padding:4px 12px">${S.mAllRcc?"Show top 5":`Show all ${cats.length}`}</button></p>`:""}<p class="sub">Select a category to list only its cars.</p>`:""}</div>
+   </div></section>`;
+}
+function carExtra(exact,k,c){
+  const rows=[];S.usage.slice().sort((a,b)=>a.month.localeCompare(b.month)).forEach(u=>(u.rows||[]).forEach(r=>{if(npk(r.plate)===k)rows.push({m:u.month,...r})}));
+  const sum=f=>rows.reduce((s,r)=>s+(+r[f]||0),0);const km=sum("km"),fuel=sum("fuelTotal"),off=sum("fuelOffice"),den=sum("fuelDenko"),ter=sum("fuelTerminal");
+  const kmpl=fuel?km/fuel:null,rated=c&&+c.kmpl?+c.kmpl:null;let peer=null;try{const US=usageStats();const r=US&&US.rows.find(x=>npk(x.plate)===k);if(r)peer=r.peer}catch(_){}
+  const exp=rated?km/rated:null;
+  const dmap=new Map();rows.forEach(r=>{String(r.driver||"Not recorded").split("/").map(x=>x.trim()).filter(Boolean).forEach(n=>{const x=dmap.get(n)||{n,months:[],km:0,fuel:0};x.months.push(r.m);x.km+=+r.km||0;x.fuel+=+r.fuelTotal||0;dmap.set(n,x)})});
+  const drvHist=[...dmap.values()].sort((a,b)=>b.months[b.months.length-1].localeCompare(a.months[a.months.length-1]));
+  const cd=c?carDriver(c):null;const st=cd?dlState(cd):null;
+  const IS=(window.__fleetIssues||[]).filter(i=>npk([i.category,i.detail,i.solution,i.remark].join(" ")).includes(k)).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+  const l=c?licDays(c):null,m=c?commDays(c):null,a=c?carAge(c):null,w=c?yearsSince(c.bought):null;
+  const f=(lab,val)=>`<div><dt>${lab}</dt><dd>${val}</dd></div>`;
+  const mx=Math.max(1,...rows.map(r=>+r.km||0));
+  return`<div class="cols">
+   <section class="panel"><h2>Car &amp; licences</h2>${c?`<dl class="spec" style="margin:0">
+     ${f("Brand / model",esc(`${c.brand||""} ${c.model||""}`))}${f("Model year · age",`${esc(c.modelYear||"—")} · ${a!=null?a+" yrs":"—"}`)}${f("Engine · size",`${esc(c.engine||"—")} · ${esc(c.size||"—")}`)}
+     ${f("Owner · location",`${esc(c.owner||"—")} · ${esc(c.location||"—")}`)}${f("Status (column AF)",`<span class="pill ${/workshop/i.test(c.health||"")?"warn":/^active$/i.test(c.health||"")?"ok":"none"}">${esc(c.health||"—")}</span>`)}${f("Bought",c.bought?`${fmtD(c.bought)}${w!=null?` · ${fmtN(w,1)} yrs with us`:""}`:"—")}
+     ${f("Licence",c.licExp?`${daysPill(l)} <span class="sub">${fmtD(c.licExp)}</span>`:"—")}${f("Commercial",c.commStatus==="Yes"?`${daysPill(m)} <span class="sub">${c.commExp?fmtD(c.commExp):""}</span>`:"Not held")}
+     ${f("GPS",`${esc(c.gps||"—")}${c.imei?` <span class="sub">${esc(c.imei)}</span>`:""}`)}${f("Rated km/L",rated?rated:"—")}${f("Fuel tank",c.tank?c.tank+" L":"—")}${f("Night park",esc(c.nightPark||c.nightOffice||"—"))}
+   </dl>`:`<p class="sub">This plate isn’t in the car list.</p>`}</section>
+   <section class="panel"><h2>Drivers</h2>
+    ${cd?`<div class="drvnow"><div><span class="sub">Current driver</span><br><button class="chipbtn dname" data-drv="${esc(drvDocId(cd))}">${esc(cd.name)}</button> <span class="sub">${esc(cd.id||"")} · ${esc(cd.phone||"")}</span></div>
+      <div class="sub" style="margin-top:4px">Licence <span class="pill ${st[0]}">${cd.dlExp?fmtD(cd.dlExp)+" · "+esc(st[1]):esc(st[1])}</span> · ${esc(cd.type||"")} · supervisor ${esc(cd.supervisor||"—")}${cd.join?` · joined ${fmtD(cd.join)}`:""}</div></div>`:`<p class="sub" style="margin:0 0 8px">${c&&c.driver?`Car list driver: <strong>${esc(c.driver)}</strong>${c.phone?` · ${esc(c.phone)}`:""} (not in the active driver list)`:"No current driver assigned."}</p>`}
+    <h3 class="dh3">Driver history (from fuel &amp; km records)</h3>
+    ${drvHist.length?`<div class="tw"><table><thead><tr><th>Driver</th><th>Months</th><th class="num">Km</th><th class="num">Fuel (L)</th><th class="num">Km/L</th></tr></thead><tbody>${drvHist.map(x=>`<tr style="cursor:default"><td><strong>${esc(x.n)}</strong></td><td>${x.months.length===1?monLabel(x.months[0]):`${monLabel(x.months[0])} – ${monLabel(x.months[x.months.length-1])} <span class="sub">(${x.months.length})</span>`}</td><td class="num">${fmtN(x.km)}</td><td class="num">${fmtN(x.fuel)}</td><td class="num">${x.fuel?fmtN(x.km/x.fuel,1):"—"}</td></tr>`).join("")}</tbody></table></div>`:`<p class="sub">No driving records yet.</p>`}
+   </section></div>
+  <section class="panel"><h2>Driving &amp; fuel history <span class="pill none">${rows.length} month${rows.length===1?"":"s"}</span></h2>
+   ${rows.length?`<div class="kpis sm">
+     ${kpi(fmtN(km),"Total km","","",`${monLabel(rows[0].m)} – ${monLabel(rows[rows.length-1].m)}`)}${kpi(fmtN(km/rows.length),"Km per month","","")}${kpi(fmtN(fuel),"Fuel (L)","","")}
+     ${kpi(kmpl!=null?fmtN(kmpl,1):"—","Km per litre",peer&&kmpl<peer*0.8?"t-bad":"","",`${peer?`model ${fmtN(peer,1)}`:""}${rated?` · rated ${rated}`:""}`)}
+     ${kpi(exp!=null?`${exp-fuel>0?"+":""}${fmtN(exp-fuel)}`:"—","Fuel balance (L) vs rated",exp!=null&&fuel>exp*1.2?"t-bad":"","")}
+     ${kpi(fuel?fmtN(off/fuel*100)+"%":"—","Office fuel share",fuel&&off/fuel>=0.4?"t-warn":"","",`Denko ${fmtN(den)} · Terminal ${fmtN(ter)} · Office ${fmtN(off)} L`)}
+    </div>
+    <div class="tw"><table><thead><tr><th>Month</th><th>Driver</th><th class="num">Start km</th><th class="num">End km</th><th>Km</th><th class="num">Denko</th><th class="num">Terminal</th><th class="num">Office</th><th class="num">Fuel (L)</th><th class="num">Km/L</th></tr></thead><tbody>
+     ${rows.slice().reverse().map(r=>`<tr style="cursor:default"><td>${monLabel(r.m)}</td><td>${esc(r.driver||"—")}</td><td class="num">${fmtN(r.startKm)}</td><td class="num">${fmtN(r.endKm)}</td><td><span class="kmbar"><span style="width:${(+r.km||0)/mx*100}%"></span></span> <strong>${fmtN(r.km)}</strong></td><td class="num">${fmtN(r.fuelDenko||0)}</td><td class="num">${fmtN(r.fuelTerminal||0)}</td><td class="num">${fmtN(r.fuelOffice||0)}</td><td class="num">${fmtN(r.fuelTotal,1)}</td><td class="num">${+r.fuelTotal>0?`<span class="${peer&&r.km/r.fuelTotal<peer*0.8?"dev low":""}">${fmtN(r.km/r.fuelTotal,1)}</span>`:"—"}</td></tr>`).join("")}
+    </tbody><tfoot><tr><th>Total</th><th></th><th></th><th></th><th>${fmtN(km)}</th><th class="num">${fmtN(den)}</th><th class="num">${fmtN(ter)}</th><th class="num">${fmtN(off)}</th><th class="num">${fmtN(fuel,1)}</th><th class="num">${kmpl!=null?fmtN(kmpl,1):"—"}</th></tr></tfoot></table></div>`:`<p class="sub">No fuel &amp; km records for this car yet.</p>`}
+  </section>
+  ${IS.length?`<section class="panel"><h2>Daily issues <span class="pill ${IS.some(i=>i.status!=="Done")?"warn":"none"}">${IS.length}</span></h2><div class="tw"><table><thead><tr><th>Date</th><th>Status</th><th>Priority</th><th>Issue</th><th>Detail</th><th>Assigned</th></tr></thead><tbody>${IS.slice(0,15).map(i=>`<tr style="cursor:default" class="${i.status!=="Done"&&i.priority==="P-1"?"flag-low":""}"><td>${fmtD(i.date)}</td><td><span class="pill ${i.status==="Done"?"ok":"warn"}">${esc(i.status)}</span></td><td>${esc(i.priority||"—")}</td><td>${esc(i.category||"")}</td><td style="white-space:normal;min-width:240px">${esc(i.detail||"")}</td><td>${esc(i.assigned||"—")}</td></tr>`).join("")}</tbody></table></div></section>`:""}
+  <h2 class="ovh" style="margin-top:8px">Maintenance</h2>`;
+}
+function maintCarReport(q,R,carBy){
+  const nq=npk(q);const plates=[...new Set(R.map(r=>r.plate))];const fleetPl=S.cars.map(c=>c.plate);
+  const all=[...new Set([...plates,...fleetPl])];const matches=all.filter(p=>npk(p).includes(nq));
+  const exact=matches.find(p=>npk(p)===nq)||(matches.length===1?matches[0]:null);
+  const back=`<button class="btn" data-act="mplateclr">← Back to all cars</button>`;
+  if(!exact)return`<section class="panel"><div class="dch"><h2>Search: “${esc(q)}”</h2>${back}</div>${matches.length?`<p class="hint">${matches.length} plates match. Choose one:</p><div class="chips">${matches.slice(0,40).map(p=>`<button class="schip" data-act="mplatego" data-plate="${esc(p)}"><b>${esc(p)}</b></button>`).join("")}</div>`:`<p class="empty">No car plate matches “${esc(q)}”.</p>`}</section>`;
+  const k=npk(exact);const rows=R.filter(r=>npk(r.plate)===k);const c=S.cars.find(x=>npk(x.plate)===k);
+  const J=jobsOf(rows).sort((a,b)=>String(b.date||b.m).localeCompare(String(a.date||a.m)));
+  const tot=rows.reduce((s,r)=>s+(+r.amt||0),0);const all12=mMonths().slice(-12);const s12=rows.filter(r=>all12.includes(r.m)).reduce((s,r)=>s+(+r.amt||0),0);
+  const yr=String(today().getFullYear());const sy=rows.filter(r=>String(r.date||r.m).startsWith(yr)).reduce((s,r)=>s+(+r.amt||0),0);
+  const g=(f)=>{const m=new Map();rows.forEach(r=>{const x=f(r)||"Not set";const e=m.get(x)||{k:x,v:0,n:new Set()};e.v+=+r.amt||0;e.n.add(r.date||r.m);m.set(x,e)});return[...m.values()].sort((a,b)=>b.v-a.v)};
+  const byCat=g(r=>r.cat),byBc=g(r=>r.bc),bySup=g(r=>r.sup);
+  const reps=repeatCats(rows,S.mRout!=="show");
+  const perM=all12.map(m=>({k:monLabel(m),v:rows.filter(r=>r.m===m).reduce((s,r)=>s+(+r.amt||0),0)}));
+  const durs=J.filter(j=>j.arr&&j.date&&durOf(j)>=0).map(durOf);const avgDur=durs.length?durs.reduce((a,b)=>a+b,0)/durs.length:null;
+  let cpk=null;try{const U=usageStats();const r=U&&U.rows.find(x=>npk(x.plate)===k);if(r&&r.km>0){const uM=U.months;const sp=rows.filter(x=>uM.includes(x.m)).reduce((s,x)=>s+(+x.amt||0),0);cpk={v:sp/r.km,km:r.km}}}catch(_){}
+  const open=J.filter(j=>((j.arr||j.date||"")>="2026-10-01")&&(!j.done||(j.arr&&!j.date)));
+  const bars=(list,n)=>barsOf(list.slice(0,n).map(x=>({k:x.k,v:x.v,n:x.n.size})),r=>r.v,v=>money(v));
+  const shownJ=S.mAllJobs?J:J.slice(0,15);
+  return`<section class="panel"><div class="dch"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">${plate({plate:exact},1)}<div><h2 style="margin:0">${esc(c?`${c.brand||""} ${c.model||""}`:"Not in car list")}</h2><div class="sub">${c?`${esc(c.owner||"—")} · ${esc(c.location||"—")} · ${esc(c.driver||(carDriver(c)||{}).name||"No driver")} · ${carAge(c)!=null?carAge(c)+" yrs old":"age unknown"} · status ${esc(c.health||"—")}`:"This plate is only in the maintenance sheet"}</div></div></div>
+     <div style="display:flex;gap:6px">${c?`<button class="btn" data-car="${esc(c._id)}">Open car profile</button>`:""}${back}</div></div>
+   <div class="kpis sm">
+    ${kpi(money(tot),"Maintenance spend (all time)","","")}${kpi(money(s12),"Last 12 months","","")}${kpi(money(sy),`Spend in ${yr}`,"","")}
+    ${kpi(fmtN(J.length),"Jobs (visits)","","",`${fmtN(rows.length)} items`)}${kpi(J.length?money(tot/J.length):"—","Average per job","","")}
+    ${kpi(J[0]?(J[0].date?fmtD(J[0].date):monLabel(J[0].m)):"—","Last service","","",J.length?`first ${J[J.length-1].date?fmtD(J[J.length-1].date):monLabel(J[J.length-1].m)}`:"")}
+    ${kpi(reps.length,"Repeated categories",reps.length?"t-bad":"t-ok","")}${kpi(open.length,"In progress",open.length?"t-warn":"t-ok","")}
+    ${kpi(avgDur!=null?fmtN(avgDur,1)+" d":"—","Average service days","","","from 1 Oct 2026")}${kpi(cpk?fmtN(cpk.v,1):"—","MMK per km","","",cpk?`${fmtN(cpk.km)} km driven`:"")}
+   </div></section>
+  ${carExtra(exact,k,c)}
+  <div class="cols">
+   <section class="panel"><h2>Spend by category</h2>${byCat.length?bars(byCat,10):"—"}</section>
+   <section class="panel"><h2>Spend by repair type <span class="sub" style="font-family:var(--sans);font-size:13px;font-weight:400">(column Z)</span></h2>${byBc.length?bars(byBc,10):"—"}</section>
+  </div>
+  <div class="cols">
+   <section class="panel"><h2>Repeated categories <span class="pill ${reps.length?"bad":"ok"}">${reps.length}</span></h2>${reps.length?`<ul class="att">${reps.map(x=>`<li style="grid-template-columns:1fr auto"><div class="what"><strong>${esc(x.cat)}</strong> · ${fmtN(x.amt)} MMK<small>${x.ds.map(d=>fmtD(d)).join(" · ")}</small></div><span class="pill bad">${x.times}×</span></li>`).join("")}</ul>`:`<p class="okline">No category repeated on this car.</p>`}</section>
+   <section class="panel"><h2>Spend per month · 12 months</h2>${barsOf(perM,r=>r.v,v=>money(v))}<h3 class="dh3">Suppliers</h3>${bars(bySup,6)}</section>
+  </div>
+  <section class="panel"><h2>Job history <span class="pill none">${J.length}</span></h2><div class="tw"><table><thead><tr><th>Date</th><th>Arrived</th><th>Categories</th><th>Work done</th><th>Supplier</th><th class="num">Amount (MMK)</th></tr></thead><tbody>
+   ${shownJ.map(j=>`<tr style="cursor:default" class="${!j.done?"flag-warn":""}"><td>${j.date?fmtD(j.date):`<span class="pill warn">not done</span>`}</td><td>${j.arr?fmtD(j.arr):"—"}</td><td>${esc([...j.cats].join(", ")||"—")}</td><td style="white-space:normal;min-width:260px">${j.items.map(r=>`${esc(r.desc||"")} <span class="sub">${fmtN(r.amt)}</span>`).join("<br>")}</td><td>${esc(j.sup||"—")}</td><td class="num"><strong>${fmtN(j.amt)}</strong></td></tr>`).join("")}
+   </tbody></table></div>${J.length>15?`<p style="margin:8px 0 0"><button class="btn ghost" data-act="malljobs" style="padding:4px 12px">${S.mAllJobs?"Show latest 15":`Show all ${J.length} jobs`}</button></p>`:""}</section>`;
+}
 function vMaintNew(){
   const all=mMonths();
   if(!all.length)return`<div class="empty"><h2>No maintenance records yet</h2><p>They come from the Google Sheet tab “Expense from PM (Main) All”. Check its status under <a href="#updates">Data sources</a>.</p></div>`;
@@ -2934,14 +3056,16 @@ function vMaintNew(){
   const rank=(list,val,fmt,sub,n,allFlag,act)=>{const L=allFlag?list:list.slice(0,n);const mx=Math.max(1e-9,...list.map(val));return`<ol class="rank">${L.map((x,i)=>`<li class="${i<3?"top3":""}"><span class="rk">${i+1}</span>${pBtn(x.plate)}<span class="rk-main"><span class="rk-bar"><span style="width:${val(x)/mx*100}%"></span></span><span class="sub">${sub(x)}</span></span><span class="rk-v">${fmt(x)}</span></li>`).join("")}</ol>${list.length>n?`<p style="margin:8px 0 0"><button class="btn ghost" data-act="${act}" style="padding:4px 12px">${allFlag?"Show top "+n:`Show all ${list.length}`}</button></p>`:""}`};
   const tile=(n,l,cls,href)=>`${href?`<button class="upn tilelink ${cls||""}" data-jump="${href.slice(1)}">`:`<div class="upn ${cls||""}">`}<span class="n">${n}</span><span class="l">${l}</span>${href?"</button>":"</div>"}`;
   const ML=monLabel(cur);
-  return`
+  const plateBox=`<div class="toolbar mplatebar"><input id="mplate" type="search" list="mplates" placeholder="Car report: type a plate, e.g. 9S/3980" value="${esc(S.mPlate||"")}" aria-label="Search car plate" autocomplete="off"><datalist id="mplates">${[...new Set(R.map(r=>r.plate))].sort().map(p=>`<option value="${esc(p)}">`).join("")}</datalist><button class="btn primary" data-act="mplatego">Search</button>${S.mPlate?`<button class="btn ghost" data-act="mplateclr">Clear</button>`:""}</div>`;
+  if(S.mPlate)return plateBox+maintCarReport(S.mPlate,R,carBy);
+  return`${plateBox}
   <div class="toolbar"><label for="mMonth" class="sub">Month</label>${sel("mMonth",cur,[...all].reverse().map(m=>[m,monLabel(m)]),"Month")}
    <label for="majorAt" class="sub">Major job from</label>${sel("majorAt",String(majAt),[["200000","200,000 MMK"],["300000","300,000 MMK"],["500000","500,000 MMK"],["1000000","1,000,000 MMK"]],"Major job threshold")}
    <span class="count">${fmtN(Jc.length)} jobs (car visits) · ${fmtN(curRows.length)} expense lines in ${ML}</span></div>
   <div class="board mboard">
    ${tile(fmtN(Jc.length),`Total jobs · ${ML} ${prev?delta(jchg,null)+" vs "+monLabel(prev):""}`)}
    ${tile(fmtN(open.length),"In progress · since 1 Oct 2026",open.length?"t-warn":"t-ok","#maint-open")}
-   ${tile(fmtN(repCars.length),"Repeat cars (3+ visits in 60 days)",repCars.length?"t-bad":"t-ok","#maint-repcars")}
+   ${tile(fmtN(repCars.length),"Repeat cars (3+ visits in 60 days)",repCars.length?"t-bad":"t-ok","#repeats")}
    ${tile(fmtN(openCars.size),"At workshop · cars with open jobs",openCars.size?"t-warn":"t-ok","#maint-open")}
    ${(()=>{const dj=cur>=DUR_FROM.slice(0,7)?Jc.filter(j=>j.arr&&j.date&&durOf(j)>=0).map(j=>({p:j.plate,d:durOf(j)})).sort((a,b)=>b.d-a.d):[];const av=dj.length?dj.reduce((a,b)=>a+b.d,0)/dj.length:null;
       return tile(dj.length?dj[0].d+" d":"—",dj.length?`Longest service · ${esc(dj[0].p)} · avg ${fmtN(av,1)} d`:cur<DUR_FROM.slice(0,7)?"Longest service (from Oct 2026)":"Longest service (no arrival dates)",dj.length&&dj[0].d>14?"t-bad":dj.length&&dj[0].d>7?"t-warn":"","#maint-dur")})()}
@@ -2951,21 +3075,13 @@ function vMaintNew(){
   </div>
   <section class="panel"><h2>Services by category · ${ML}</h2><p class="hint">Number of jobs that included each category, with the spend.</p>
    <div class="catgrid">${cats.map(([c,x])=>`<div class="catcard"><span class="cc-n">${fmtN(x.n)}</span><span class="cc-l">${esc(c)}</span><span class="cc-bar"><span style="width:${x.n/catMax*100}%"></span></span><span class="sub">${fmtN(x.amt)} MMK</span></div>`).join("")||`<p class="sub">No jobs this month.</p>`}</div></section>
-  ${durationPanel(J,pBtn,carName,cur)}
   <div class="cols">
    <section class="panel hl"><h2>Top spend cars · ${ML}</h2><p class="hint">Highest maintenance spend this month.</p>${carsCur.length?rank(carsCur,x=>x.amt,x=>money(x.amt),x=>`${esc(carName(x.plate))} · ${x.jobs} job${x.jobs>1?"s":""}${x.maj?` · ${x.maj} major`:""} · 12 months ${money(sp12.get(normPlate(x.plate))||0)}`,5,S.mAllCars,"mallcars"):`<p class="empty">No spend this month.</p>`}</section>
    <section class="panel hl" id="maint-cpk"><h2>Cost per km</h2><p class="hint">${favg!=null?`Maintenance MMK per km driven (${uM.map(monLabel).join(", ")}), cars with 500+ km. Fleet average <strong>${fmtN(favg,1)}</strong> MMK/km.`:"Upload Fuel &amp; km (Driving &amp; fuel tab) for the same months to see cost per km."}</p>${cpk.length?rank(cpk,x=>x.cpk,x=>fmtN(x.cpk,1),x=>`${esc(carName(x.plate))} · ${fmtN(x.km)} km · ${fmtN(x.cpk/favg,1)}× avg`,5,S.mAllCpk,"mallcpk"):""}</section>
   </div>
-  <div class="cols">
-   <section class="panel" id="repeats"><h2>Repeated repairs within 60 days <span class="pill ${reps.length?"bad":"ok"}">${reps.length}</span></h2><p class="hint">Same work on the same car again within 60 days, all records (routine oil services left out).</p>
-    ${reps.length?`<ul class="att">${(S.mAllRep?reps:reps.slice(0,8)).map(x=>`<li>${pBtn(x.plate)}<div class="what">${esc(x.label)}<small>${x.times} times · shortest gap ${x.minGap} days · ${fmtN(x.amt)} MMK</small></div><span class="pill ${x.reps>=3?"bad":"warn"}">${x.reps} repeat${x.reps>1?"s":""}</span></li>`).join("")}</ul>${reps.length>8?`<p style="margin:8px 0 0"><button class="btn ghost" data-act="mallrep" style="padding:4px 12px">${S.mAllRep?"Show top 8":`Show all ${reps.length}`}</button></p>`:""}`:`<p class="okline">No repeated repairs.</p>`}</section>
-   <div>
-    <section class="panel" id="maint-repcars"><h2>Repeat cars · 60 days to ${esc(endD.toLocaleDateString(undefined,{day:"numeric",month:"short"}))} <span class="pill ${repCars.length?"bad":"ok"}">${repCars.length}</span></h2>
-     ${repCars.length?`<ul class="att">${repCars.slice(0,10).map(x=>`<li>${pBtn(x.plate)}<div class="what">${x.jobs.length} visits · ${fmtN(x.amt)} MMK<small>${x.jobs.map(j=>esc(j.date?fmtD(j.date):monLabel(j.m))).join(" · ")}</small></div><span class="pill bad">${x.jobs.length}×</span></li>`).join("")}</ul>${repCars.length>10?`<p class="sub">and ${repCars.length-10} more</p>`:""}`:`<p class="okline">No car came 3 or more times in 60 days.</p>`}</section>
-    <section class="panel" id="maint-open"><h2>In progress · at workshop <span class="pill ${open.length?"warn":"ok"}">${open.length}</span></h2><p class="hint">Jobs since 1 Oct 2026 that aren’t done (status not Done, or arrived without a done date), oldest first. Earlier jobs have no workshop data.</p>
+  ${repeatCatPanel(R,pBtn,carName)}
+  <section class="panel" id="maint-open"><h2>In progress · at workshop <span class="pill ${open.length?"warn":"ok"}">${open.length}</span></h2><p class="hint">Jobs since 1 Oct 2026 that aren’t done (status not Done, or arrived without a done date), oldest first. Earlier jobs have no workshop data.</p>
      ${open.length?`<ul class="att">${open.slice(0,10).map(j=>{const d=Math.round((today()-oD(j))/DAY);return`<li>${pBtn(j.plate)}<div class="what">${esc([...j.cats].join(", ")||"Job")} · ${fmtN(j.amt)} MMK<small>${j.date?fmtD(j.date):monLabel(j.m)} · ${esc(j.sup||"")}</small></div><span class="pill ${d>30?"bad":"warn"}">${d} d</span></li>`}).join("")}</ul>${open.length>10?`<p class="sub">and ${open.length-10} more</p>`:""}`:`<p class="okline">Every job is marked Done.</p>`}</section>
-   </div>
-  </div>
   <h2 class="ovh">Trends</h2>
   ${catStack(m12,R12,perM,maxM)}
   <div class="cols">
@@ -3039,7 +3155,7 @@ function vDash(){
    <h3 class="dh3">Km per month</h3>${dBars(U.months.map(m=>{const u=S.usage.find(x=>x.month===m);const km=u?(u.rows||[]).reduce((a,r)=>a+(+r.km||0),0):0;return{k:monLabel(m),v:km}}),0,r=>goAttr("usage",""))}</section>`:`<section class="panel dcard"><div class="dch"><h2>Driving &amp; fuel</h2><button class="btn ghost" ${goAttr("usage","")}>Open →</button></div><p class="sub">No fuel &amp; km uploaded yet.</p></section>`;
   // ----- Maintenance card
   const maintCard=MJ?`<section class="panel dcard"><div class="dch"><h2>Maintenance · ${monLabel(MJ.cur)}</h2><button class="btn ghost" ${goAttr("maint","")}>Open →</button></div>
-   <div class="kpis sm">${kpi(fmtN(MJ.jobs),"Jobs","",goAttr("maint",""))}${kpi(MJ.open,"In progress",MJ.open?"t-warn":"t-ok",goAttr("maint","jump=maint-open"),`${MJ.openCars} cars`)}${kpi(MJ.rep,"Repeat cars (60 d)",MJ.rep?"t-bad":"t-ok",goAttr("maint","jump=maint-repcars"))}${kpi(sellN+insN,"Sell / inspect",sellN?"t-bad":insN?"t-warn":"t-ok",goAttr("overview","jump=sellrec"))}</div>
+   <div class="kpis sm">${kpi(fmtN(MJ.jobs),"Jobs","",goAttr("maint",""))}${kpi(MJ.open,"In progress",MJ.open?"t-warn":"t-ok",goAttr("maint","jump=maint-open"),`${MJ.openCars} cars`)}${kpi(MJ.rep,"Repeat cars (60 d)",MJ.rep?"t-bad":"t-ok",goAttr("maint","jump=repeats"))}${kpi(sellN+insN,"Sell / inspect",sellN?"t-bad":insN?"t-warn":"t-ok",goAttr("overview","jump=sellrec"))}</div>
    <h3 class="dh3">Spend by category</h3>${dBars(MJ.cat.slice(0,6).map(([k,v])=>({k,v,label:money(v)})),0,r=>goAttr("maint",""))}
    ${MJ.top.length?`<h3 class="dh3">Top spend cars</h3><div class="chiprow">${MJ.top.map(x=>{const c=S.cars.find(y=>normPlate(y.plate)===normPlate(x.plate));return c?`<button class="schip" data-car="${esc(c._id)}"><b>${esc(x.plate)}</b> ${money(x.v)}</button>`:`<span class="schip"><b>${esc(x.plate)}</b> ${money(x.v)}</span>`}).join("")}</div>`:""}</section>`:"";
   // ----- Issues card
@@ -3161,7 +3277,7 @@ function openDetail(id){
   const cChart=K.cat&&K.cat.length?`<div class="bars">${(()=>{const mx=Math.max(1,...K.cat.map(x=>x[1]));return K.cat.map(([n,v])=>`<div class="bar wbar"><span>${esc(n)}</span><span class="track"><span class="fill" style="width:${v/mx*100}%"></span></span><span class="num">${fmtN(v)}</span></div>`).join("")})()}</div>`:"";
   const acts=S.log.filter(e=>e.plate===c.plate);
   const nav=[["cd-sum","Summary"],["cd-perf","Performance"],["cd-life","Life & licences"],["cd-ext","Extensions"],["cd-drive","Driving & fuel"],["cd-maint","Maintenance"],["cd-iss","Daily issues"],["cd-act","Activity"],["cd-data","All data"]];
-  dl.innerHTML=`<div class="dh">${plate(c,1)}<div style="min-width:0"><h2 id="detailTitle">${esc(c.brand||"")} ${esc(c.model||"")}</h2><div class="sub">${esc(c.owner||"No owner")} · ${esc(c.location||"No location")} · ${esc(c.driver||"No driver")}${isSold?` · <span class="pill bad">Sold ${fmtD(c.soldDate)}</span>`:""}</div></div><span class="pill ${verdict[0]} verdict">${verdict[1]}</span><button class="btn ghost x" data-close aria-label="Close">Close</button>
+  dl.innerHTML=`<div class="dh">${plate(c,1)}<div style="min-width:0"><h2 id="detailTitle">${esc(c.brand||"")} ${esc(c.model||"")}</h2><div class="sub">${esc(c.owner||"No owner")} · ${esc(c.location||"No location")} · ${esc(c.driver||"No driver")}${isSold?` · <span class="pill bad">Sold ${fmtD(c.soldDate)}</span>`:""}</div></div><span class="pill ${verdict[0]} verdict">${verdict[1]}</span><button class="btn" data-act="mplatego" data-plate="${esc(c.plate)}" style="margin-left:auto">Full car report</button><button class="btn ghost" data-close aria-label="Close">Close</button>
     <nav class="cdnav" aria-label="Car sections">${nav.map(([i,t])=>`<button data-jump="${i}">${t}</button>`).join("")}</nav></div>
   <div class="db">
     <div class="cd-sec" id="cd-sum">
@@ -3405,7 +3521,7 @@ document.addEventListener("click",e=>{
   {const ad=e.target.closest("[data-accadd]");if(ad){const id=ad.dataset.accadd;saveAccess(id,{level:ad.dataset.lvl||"1",sections:ALLSEC,upload:false,export:true});const i=$("#accSearch");if(i)i.value="";const r=$("#accResults");if(r)r.innerHTML="";return}
    const rm=e.target.closest('[data-acc="remove"]');if(rm){const id=rm.closest("tr").dataset.accid;if(confirm(`Remove ${S.names[id]||"this person"}? They will get the “Everyone else” access.`)){S.db.collection("access").doc(id).delete().then(()=>logIt("Edited","Access",`Removed ${S.names[id]||"a person"}`)).catch(()=>toast("Only Level 2 users can change access."))}return}}
   if(e.target.closest("[data-nopen]")&&!e.target.closest("[data-act]"))return;
-  const t=e.target.closest("[data-car],[data-go],[data-sort],[data-group],[data-act],[data-close],[data-pick],[data-usort],[data-uflag],[data-msort],[data-nav],[data-jump],[data-met],[data-goto],[data-cflag],[data-cview],[data-mmode],[data-dsort],[data-dflag],[data-drv],[data-ssec],[data-sdpick],[data-sfpick],[data-smpick]");if(!t)return;
+  const t=e.target.closest("[data-car],[data-go],[data-sort],[data-group],[data-act],[data-close],[data-pick],[data-usort],[data-uflag],[data-msort],[data-nav],[data-jump],[data-met],[data-rccat],[data-goto],[data-cflag],[data-cview],[data-mmode],[data-dsort],[data-dflag],[data-drv],[data-ssec],[data-sdpick],[data-sfpick],[data-smpick]");if(!t)return;
   if(t.dataset.ssec){S.sumSec=t.dataset.ssec;S.openGroup=null;if(location.hash!=="#groups")location.hash="groups";else render();e.preventDefault();return}
   if(t.dataset.sdpick){S.sdGroup=t.dataset.sdpick;S.openGroup=null;render();return}
   if(t.dataset.sfpick){S.sfGroup=t.dataset.sfpick;render();return}
@@ -3421,6 +3537,7 @@ document.addEventListener("click",e=>{
     if(jump==="sellrec")S.ovOpen.add("sellbox");
     if(location.hash==="#"+v)render();else location.hash=v;
     setTimeout(()=>{const el=jump?document.getElementById(jump):(v==="cars"&&S.fFlag?document.querySelector(".listbar"):null);if(el)el.scrollIntoView({block:"start"});else if(!jump)window.scrollTo(0,0)},80);return}
+  if(t.dataset.rccat){S.mRcCat=S.mRcCat===t.dataset.rccat?"":t.dataset.rccat;S.mAllRc=false;render();return}
   if(t.dataset.met){S.sumMet=t.dataset.met;render();return}
   if(t.dataset.cflag!=null){S.fFlag=S.fFlag===t.dataset.cflag?"":t.dataset.cflag;render();const g=document.querySelector(".listbar");if(g&&S.fFlag)g.scrollIntoView({block:"start"});return}
   if(t.dataset.cview){S.carView=t.dataset.cview;render();return}
@@ -3438,11 +3555,11 @@ document.addEventListener("click",e=>{
   if(t.dataset.group!=null){S.openGroup=S.openGroup===t.dataset.group?null:t.dataset.group;render();return}
   const a=t.dataset.act,id=t.dataset.id;
   const P=S.perm;if(P){if(["upload","fuelup","maintup","drvup"].includes(a)&&!P.upload){toast("You don’t have upload access");return}if(["delete","mdel"].includes(a)&&!P.del){toast("Only Level 2 can delete");return}if(a==="exportall"&&!P.export){toast("You don’t have export access");return}}
-  if(a==="exportall")exportAll();else if(a==="drvup")$("#drvIn").click();else if(a==="mallcars"){S.mAllCars=!S.mAllCars;render()}else if(a==="mallcpk"){S.mAllCpk=!S.mAllCpk;render()}else if(a==="mallrep"){S.mAllRep=!S.mAllRep;render()}else if(a==="srcrefresh"){loadSources();toast("Reading the Google Sheets…")}else if(a==="srcsave"){const k=t.dataset.k;const l=(document.querySelector(`[data-src-link="${k}"]`)||{}).value||"";const tb=((document.querySelector(`[data-src-tab="${k}"]`)||{}).value||"").trim();if(!sheetIdOf(l.trim())&&!isPubLink(l.trim())){toast("Paste a valid Google Sheet link, or a “Publish to web” CSV link");return}saveSource(k,SRC_DEF[k][2]==="tabs"?{link:l.trim(),tabs:tb}:{link:l.trim(),tab:tb})}else if(a==="srcclear"){if(confirm("Unlink this sheet? The portal will show the data saved earlier."))saveSource(t.dataset.k,null)}else if(a==="mkinvite")createInvite();else if(a==="redeem")redeemCode();else if(a==="delinvite"){const c=t.dataset.code;if(confirm(`Delete invite ${c}? People who already joined keep their access.`))S.db.collection("access").doc("invite_"+c).delete().catch(()=>toast("Only Level 2 users can delete invites."))}else if(a==="sellall"){S.sellAll=!S.sellAll;render()}else if(a==="sellclear"){saveSellList(new Set())}else if(a==="sellrecs"){const SS=sellScores();const n=new Set(S.sellList);if(SS)SS.list.filter(x=>x.tier[1].startsWith("Sell")).forEach(x=>n.add(x.carId));saveSellList(n)}else if(a==="ovall"){document.querySelectorAll("details[data-ov]").forEach(d=>{d.open=t.dataset.v==="1"})}else if(a==="gorep"){const el=document.getElementById("repeats");if(el)el.scrollIntoView({block:"start"})}else if(a==="rmore"){S.rLimit+=50;render()}else if(a==="maintup")$("#maintIn").click();else if(a==="mmore"){S.mLimit+=200;render()}else if(a==="mdel")delMaintMonth(t.dataset.month);else if(a==="fuelup")$("#fuelIn").click();else if(a==="extlic")openExtend(id,"lic");else if(a==="extcom")openExtend(id,"com");else if(a==="upload")$("#fileIn").click();else if(a==="add")openForm();else if(a==="edit")openForm(id);else if(a==="sell")openSell(id);else if(a==="restore")restore(id);else if(a==="delete")del(id);
+  if(a==="exportall")exportAll();else if(a==="drvup")$("#drvIn").click();else if(a==="mplatego"){const dd=document.getElementById("detailDlg");if(dd&&dd.open)dd.close();const v=t.dataset.plate||((document.getElementById("mplate")||{}).value||"").trim();S.mPlate=v;S.mAllJobs=false;if(location.hash!=="#maint")location.hash="maint";else render();window.scrollTo(0,0)}else if(a==="mplateclr"){S.mPlate="";render()}else if(a==="mallrc"){S.mAllRc=!S.mAllRc;render()}else if(a==="mallrcc"){S.mAllRcc=!S.mAllRcc;render()}else if(a==="malljobs"){S.mAllJobs=!S.mAllJobs;render()}else if(a==="rcclear"){S.mRcCat="";render()}else if(a==="mallcars"){S.mAllCars=!S.mAllCars;render()}else if(a==="mallcpk"){S.mAllCpk=!S.mAllCpk;render()}else if(a==="mallrep"){S.mAllRep=!S.mAllRep;render()}else if(a==="srcrefresh"){loadSources();toast("Reading the Google Sheets…")}else if(a==="srcsave"){const k=t.dataset.k;const l=(document.querySelector(`[data-src-link="${k}"]`)||{}).value||"";const tb=((document.querySelector(`[data-src-tab="${k}"]`)||{}).value||"").trim();if(!sheetIdOf(l.trim())&&!isPubLink(l.trim())){toast("Paste a valid Google Sheet link, or a “Publish to web” CSV link");return}saveSource(k,SRC_DEF[k][2]==="tabs"?{link:l.trim(),tabs:tb}:{link:l.trim(),tab:tb})}else if(a==="srcclear"){if(confirm("Unlink this sheet? The portal will show the data saved earlier."))saveSource(t.dataset.k,null)}else if(a==="mkinvite")createInvite();else if(a==="redeem")redeemCode();else if(a==="delinvite"){const c=t.dataset.code;if(confirm(`Delete invite ${c}? People who already joined keep their access.`))S.db.collection("access").doc("invite_"+c).delete().catch(()=>toast("Only Level 2 users can delete invites."))}else if(a==="sellall"){S.sellAll=!S.sellAll;render()}else if(a==="sellclear"){saveSellList(new Set())}else if(a==="sellrecs"){const SS=sellScores();const n=new Set(S.sellList);if(SS)SS.list.filter(x=>x.tier[1].startsWith("Sell")).forEach(x=>n.add(x.carId));saveSellList(n)}else if(a==="ovall"){document.querySelectorAll("details[data-ov]").forEach(d=>{d.open=t.dataset.v==="1"})}else if(a==="gorep"){const el=document.getElementById("repeats");if(el)el.scrollIntoView({block:"start"})}else if(a==="rmore"){S.rLimit+=50;render()}else if(a==="maintup")$("#maintIn").click();else if(a==="mmore"){S.mLimit+=200;render()}else if(a==="mdel")delMaintMonth(t.dataset.month);else if(a==="fuelup")$("#fuelIn").click();else if(a==="extlic")openExtend(id,"lic");else if(a==="extcom")openExtend(id,"com");else if(a==="upload")$("#fileIn").click();else if(a==="add")openForm();else if(a==="edit")openForm(id);else if(a==="sell")openSell(id);else if(a==="restore")restore(id);else if(a==="delete")del(id);
 });
-document.addEventListener("keydown",e=>{if(e.key!=="Enter")return;const tr=e.target.closest&&e.target.closest("tr[data-car],tr[data-group],tr[data-drv],[data-sdpick],[data-sfpick],[data-smpick]");if(tr)tr.click()});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="mplate"){S.mPlate=e.target.value.trim();S.mAllJobs=false;render();return}if(e.key!=="Enter")return;const tr=e.target.closest&&e.target.closest("tr[data-car],tr[data-group],tr[data-drv],[data-sdpick],[data-sfpick],[data-smpick]");if(tr)tr.click()});
 document.addEventListener("input",e=>{if(e.target.id==="q"){S.q=e.target.value;render()}else if(e.target.id==="uq"){S.uQ=e.target.value;render()}else if(e.target.id==="dq"){S.dQ=e.target.value;render()}else if(e.target.id==="accSearch"){accSearch(e.target.value)}else if(e.target.id==="mq"){S.mQ=e.target.value;S.mLimit=200;render()}});
-document.addEventListener("change",e=>{if(e.target.id==="carSort"){S.sort=e.target.value;S.dir=1;render();return}if(e.target.dataset&&e.target.dataset.acc&&e.target.dataset.acc!=="remove"){accChange(e.target);return}if(e.target.dataset&&e.target.dataset.sellpick){const n=new Set(S.sellList);const id=e.target.dataset.sellpick;if(e.target.checked)n.add(id);else n.delete(id);saveSellList(n);return}const id=e.target.id;if(["fOwner","fLoc","fBrand","fFlag","groupBy","uOwner","uFlag","uThr","uOff","mPeriod","mOwner","mCat","rMatch","rDays","rRout","sellGroup","carSort","mMonth","majorAt","dOwner","dSup","dFlag"].includes(id)){S[id]=e.target.value;if(id==="groupBy")S.openGroup=null;render()}});
+document.addEventListener("change",e=>{if(e.target.id==="carSort"){S.sort=e.target.value;S.dir=1;render();return}if(e.target.dataset&&e.target.dataset.acc&&e.target.dataset.acc!=="remove"){accChange(e.target);return}if(e.target.dataset&&e.target.dataset.sellpick){const n=new Set(S.sellList);const id=e.target.dataset.sellpick;if(e.target.checked)n.add(id);else n.delete(id);saveSellList(n);return}const id=e.target.id;if(["fOwner","fLoc","fBrand","fFlag","groupBy","uOwner","uFlag","uThr","uOff","mPeriod","mOwner","mCat","rMatch","rDays","rRout","sellGroup","mRout","carSort","mMonth","majorAt","dOwner","dSup","dFlag"].includes(id)){S[id]=e.target.value;if(id==="groupBy")S.openGroup=null;render()}});
 document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.dataset&&d.dataset.ov){if(d.open)S.ovOpen.add(d.dataset.ov);else S.ovOpen.delete(d.dataset.ov)}},true);
 $("#addBtn").addEventListener("click",()=>openForm());
 $("#exportBtn").addEventListener("click",()=>{if(S.perm&&!S.perm.export)return;exportAll()});
