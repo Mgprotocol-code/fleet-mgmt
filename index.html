@@ -3211,20 +3211,34 @@ const ACC_KEYS=[["plate",/(car|vehicle)\s*(plate)?\s*(no|number|#)|^plate|plate\
  ["desc",/descri|detail|what\s*happen|summary|incident$/],["damage",/damage/],["cost",/total\s*cost|repair\s*cost|cost|amount|mmk|expense|price|compens/],
  ["insurance",/insur|claim/],["status",/status|progress|closed|case\s*state/],["action",/action|follow|solution/],["fault",/fault|responsib|liab|blame|who.*wrong/],
  ["party",/third|other\s*party|victim|opposite/],["owner",/owner|dept|department/],["injury",/injur|hurt|casualt/],["police",/police|case\s*no|fir/]];
-let ACC_COLS=[];
+let ACC_COLS=[],ACC_DIAG=null;
+function accDate(X,v){
+  if(v==null||String(v).trim()==="")return null;
+  if(/^\s*\d{4}\s*$/.test(String(v))&&typeof v!=="number")return null;
+  let d=pickDate(dateCands(X,v),null);if(d)return d;
+  const s=String(v).trim();let m;
+  if((m=/^([A-Za-z]{3,9})[\s\-\/.,]+(\d{4})$/.exec(s))){const mo=MON3X[m[1].toLowerCase().slice(0,3)];if(mo)return`${m[2]}-${pad(mo)}-01`}
+  if((m=/^(\d{4})[\-\/.](\d{1,2})$/.exec(s))&&+m[2]>=1&&+m[2]<=12)return`${m[1]}-${pad(+m[2])}-01`;
+  if((m=/^(\d{1,2})[\-\/.](\d{4})$/.exec(s))&&+m[1]>=1&&+m[1]<=12)return`${m[2]}-${pad(+m[1])}-01`;
+  if((m=/(\d{1,2})[\s\-\/.]*([A-Za-z]{3,9})[\s\-\/.,]*(\d{2,4})/.exec(s))){const mo=MON3X[m[2].toLowerCase().slice(0,3)];let y=+m[3];if(y<100)y+=2000;if(mo&&+m[1]>=1&&+m[1]<=31)return`${y}-${pad(mo)}-${pad(+m[1])}`}
+  if((m=/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/.exec(s))){let a=+m[1],b=+m[2],y=+m[3];if(y<100)y+=2000;if(a>12&&b<=12)return`${y}-${pad(b)}-${pad(a)}`;if(b>12&&a<=12)return`${y}-${pad(a)}-${pad(b)}`;if(a<=12&&b<=12)return`${y}-${pad(b)}-${pad(a)}`}
+  return null;
+}
 function parseAccSheet(X,ws){
   const raw=X.utils.sheet_to_json(ws,{header:1,raw:true,defval:null,blankrows:false});
   const hn=h=>String(h??"").replace(/\s+/g," ").trim();
   let hi=-1,best=0;raw.slice(0,15).forEach((r,i)=>{if(!r)return;const n=r.filter(c=>typeof c==="string"&&c.trim()).length;const hit=r.filter(c=>typeof c==="string"&&ACC_KEYS.some(([k,re])=>re.test(c.toLowerCase()))).length;const sc=hit*3+n;if(hit>=2&&sc>best){best=sc;hi=i}});
   if(hi<0)throw new Error("No header row found (looking for columns such as Car No, Date, Driver)");
   const H=raw[hi].map(hn);const used=new Set();const map={};
-  ACC_KEYS.forEach(([k,re])=>{const i=H.findIndex((h,j)=>h&&!used.has(j)&&re.test(h.toLowerCase()));if(i>=0){map[k]=i;used.add(i)}});
+  map.date=0;used.add(0); // column A = accident date
+  ACC_KEYS.forEach(([k,re])=>{if(k==="date")return;const i=H.findIndex((h,j)=>h&&!used.has(j)&&re.test(h.toLowerCase()));if(i>=0){map[k]=i;used.add(i)}});
+  ACC_DIAG={header:H[0]||"(no heading)",filled:0,read:0,samples:[],bad:[]};
   if(map.plate==null)throw new Error("No car plate column found. Headings seen: "+H.filter(Boolean).slice(0,12).join(", "));
   ACC_COLS=H.map((h,i)=>({i,h:h||X.utils.encode_col(i)})).filter(x=>raw.slice(hi+1).some(r=>r&&r[x.i]!=null&&String(r[x.i]).trim()!==""));
   const out=[];
   raw.slice(hi+1).forEach((r,ri)=>{if(!r)return;const pv=r[map.plate];if(pv==null||!String(pv).trim())return;
     const g=k=>map[k]!=null?r[map[k]]:null;const txt=v=>v==null?"":String(v).trim();
-    const dc=dateCands(X,g("date"));const date=pickDate(dc,null);
+    const rawD=g("date");const date=accDate(X,rawD);if(rawD!=null&&String(rawD).trim()!==""){ACC_DIAG.filled++;if(date)ACC_DIAG.read++;else if(ACC_DIAG.bad.length<5)ACC_DIAG.bad.push(String(rawD))}if(ACC_DIAG.samples.length<4&&rawD!=null)ACC_DIAG.samples.push(String(rawD));
     let cost=g("cost");if(typeof cost==="string"){const n=+cost.replace(/[^0-9.\-]/g,"");cost=isNaN(n)||cost.replace(/[^0-9]/g,"")===""?null:n}else if(typeof cost!=="number")cost=null;
     const all={};ACC_COLS.forEach(c=>{let v=r[c.i];if(v==null||String(v).trim()==="")return;if(typeof v==="number"&&/date/i.test(c.h)){const d=pickDate(dateCands(X,v),null);if(d)v=d}all[c.h]=v});
     out.push({_i:ri,plate:txt(pv),date,m:date?date.slice(0,7):"",driver:txt(g("driver")),location:txt(g("location")),type:txt(g("type")),desc:txt(g("desc")),damage:txt(g("damage")),cost,insurance:txt(g("insurance")),status:txt(g("status")),action:txt(g("action")),fault:txt(g("fault")),party:txt(g("party")),injury:txt(g("injury")),all});
@@ -3265,7 +3279,9 @@ function vAcc(){
   const bar=(list,go,n)=>dBars(list.slice(0,n||8).map(([k,v])=>({k,v})),0,go);
   const plateGo=r=>{const c=S.cars.find(x=>npk(x.plate)===npk(r.k));return c?`data-car="${esc(c._id)}"`:`data-accq="${esc(r.k)}"`};
   const shown=S.accAll?L:L.slice(0,20);
-  return`<div class="toolbar"><input type="search" id="accQ" placeholder="Search plate, driver, location, type…" value="${esc(S.accQ||"")}" aria-label="Search accidents">
+  const noDate=A.filter(a=>!a.date).length;const DG=ACC_DIAG;
+  const diag=noDate?`<div class="notice">${fmtN(noDate)} of ${fmtN(A.length)} accidents have a date in <strong>column A</strong> (“${esc(DG?DG.header:"")}”) that couldn’t be read${DG&&DG.bad.length?`, for example ${DG.bad.map(x=>`“${esc(x)}”`).join(", ")}`:""}. They are listed below but left out of the monthly and yearly charts.</div>`:"";
+  return`${diag}<div class="toolbar"><input type="search" id="accQ" placeholder="Search plate, driver, location, type…" value="${esc(S.accQ||"")}" aria-label="Search accidents">
     ${sel("accPer",per,[["all","All records"],["y",`This year (${y})`],["12","Last 12 months"]],"Period")}<span class="count">${L.length} of ${A.length} accidents</span></div>
   <div class="kpis">
    ${kpi(fmtN(L.length),"Accidents","",`data-jump="acc-list"`,per==="all"?`${thisY} in ${y} · ${lastY} in ${+y-1}`:"")}
