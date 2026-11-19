@@ -2163,7 +2163,7 @@ function maintRows(){
   const rows=[];S.maint.forEach(d=>(d.rows||[]).forEach(r=>rows.push({...r,m:d.month})));
   S._mCache={src:S.maint,rows};return rows;
 }
-const mMonths=()=>[...new Set(S.maint.map(d=>d.month))].sort();
+const mMonths=()=>[...new Set(S.maint.map(d=>d.month))].filter(Boolean).sort();
 function mPeriodMonths(all){const p=S.mPeriod;if(p==="all")return all;if(/^\d{4}$/.test(p))return all.filter(m=>m.startsWith(p));return all.slice(-(+p||12))}
 function vMaint(){
   const all=mMonths();
@@ -2298,7 +2298,7 @@ function dateCands(X,v){
   return[];
 }
 const pickDate=(c,m)=>!c.length?null:c.length===1||!m?c[0]:(c.find(x=>x.slice(0,7)===m)||c.find(x=>x<=isoD(today()))||c[0]);
-let MAINT_ARR_INFO=null,MAINT_MONTH_BAD=[];
+let MAINT_ARR_INFO=null,MAINT_MONTH_BAD=[],MAINT_NODATE=0;
 function monthOf(X,v){
   if(v==null||v==="")return null;const ok=(y,m)=>y>=2015&&y<=2100&&m>=1&&m<=12?`${y}-${pad(m)}`:null;
   if(typeof v==="number"){const p=X.SSF.parse_date_code(v);return p?ok(p.y,p.m):null}
@@ -2318,7 +2318,7 @@ function readMaintSheet(X,ws){
   const seen={};const cols=raw[hi].map(h=>{const n=mHead(h);seen[n]=(seen[n]||0)+1;if(n==="car type")return seen[n]===1?"ct":null;return seen[n]===1?(MMAP[n]||null):null});
   raw[hi].forEach((h,i)=>{if(!cols[i]&&/arriv|arrive|car in date|in date|received/.test(mHead(h))&&!cols.includes("arr"))cols[i]="arr"});if(!cols.includes("arr")){if(cols[31]&&cols[31]!=="arr")cols[cols.indexOf(cols[31])]=null;cols[31]="arr"}
   for(let k=0;k<cols.length;k++)if(cols[k]==="bc")cols[k]=null;cols[25]="bc"; // column Z = repair category
-  MAINT_MONTH_BAD=[];const arrCol=cols.indexOf("arr");MAINT_ARR_INFO={col:arrCol,letter:arrCol>=0?X.utils.encode_col(arrCol):"?",header:String(raw[hi][arrCol]??"(no heading)"),filled:0,read:0,samples:[]};
+  MAINT_MONTH_BAD=[];MAINT_NODATE=0;const arrCol=cols.indexOf("arr");MAINT_ARR_INFO={col:arrCol,letter:arrCol>=0?X.utils.encode_col(arrCol):"?",header:String(raw[hi][arrCol]??"(no heading)"),filled:0,read:0,samples:[]};
   const out=[];
   raw.forEach((r,ri)=>{if(ri<=hi||!r)return;const t=txt[ri]||[];const d={};
     cols.forEach((k,i)=>{if(!k)return;let v=r[i];if(v==null)return;if(typeof v==="string"){v=v.trim();if(!v||/^#N\/A$/i.test(v))return}
@@ -2331,11 +2331,12 @@ function readMaintSheet(X,ws){
     if(!d.plate&&!d.desc&&d.amt==null)return;
     if(!d.plate)d.plate="No plate";
     if(d.amt==null)d.amt=(d.tot||0)-(d.disc||0);
-    if(d._date){const v=pickDate(d._date,d.m);if(v)d.date=v}delete d._date;
-    if(!d.m&&d.date)d.m=d.date.slice(0,7);
-    if(d._arr){const v=pickDate(d._arr,d.m||(d.date||"").slice(0,7));if(v){d.arr=v;MAINT_ARR_INFO.read++}}delete d._arr;
-    if(!d.m&&d.date)d.m=d.date.slice(0,7);
-    if(!d.m)return;
+    if(d._date){const v=pickDate(d._date,null);if(v)d.date=v;else if(d._date.length===0)MAINT_MONTH_BAD.push(String(t[cols.indexOf("date")]??""))}delete d._date;
+    d.mR=d.date?d.date.slice(0,7):""; // Maintenance tab: month from column R only
+    if(!d.m&&d.date)d.m=d.date.slice(0,7); // other sections: Month column, column R as fallback
+    if(d._arr){const v=pickDate(d._arr,d.m||d.mR||null);if(v){d.arr=v;MAINT_ARR_INFO.read++}}delete d._arr;
+    if(!d.m&&!d.mR&&!d.arr){MAINT_NODATE++;return}
+    if(!d.m)d.m="";
     out.push(d)});
   return out;
 }
@@ -2781,8 +2782,8 @@ function inviteSection(){
    ${L.length?`<div class="tw" style="margin-top:12px"><table><thead><tr><th>Code</th><th>For</th><th>Level</th><th>Status</th><th></th></tr></thead><tbody>${L.map(([c,v])=>`<tr style="cursor:default"><td><strong class="codecell">${esc(c)}</strong></td><td>${esc(v.label||"—")}</td><td>${esc(levelName(v.level))}</td><td>${v.usedBy?`<span class="pill ok">Used by ${esc(S.names[v.usedBy]||"someone")}</span>`:`<span class="pill warn">Waiting</span>`}</td><td><button class="btn danger ghost" data-act="delinvite" data-code="${esc(c)}" style="padding:4px 10px">Delete</button></td></tr>`).join("")}</tbody></table></div>`:""}
   </section>`;
 }
-function maintSrcNote(){const st=(S.srcStatus||{}).maint||{};const c=srcCfg("maint")||{};let mm=[];try{mm=mMonths()}catch(_){}const rng=mm.length?` · months ${monLabel(mm[0])} – ${monLabel(mm[mm.length-1])}`:"";
-  if(st.state==="ok")return`<p class="sub" style="margin:-6px 0 14px">Calculated from the Google Sheet tab <strong>${esc(c.tab||"Expense from PM (Main) All")}</strong> · ${fmtN(st.n)} expense lines${rng} · read ${esc(new Date(st.at).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"}))} · <a href="#updates">Data sources</a></p>${MAINT_MONTH_BAD.length?`<div class="notice">${fmtN(MAINT_MONTH_BAD.length)} rows have a Month value that couldn’t be read (e.g. ${[...new Set(MAINT_MONTH_BAD)].slice(0,4).map(x=>`“${esc(x)}”`).join(", ")}); their done date (column R) was used instead where possible.</div>`:""}`;
+function maintSrcNote(){const st=(S.srcStatus||{}).maint||{};const c=srcCfg("maint")||{};let mm=[];try{mm=[...new Set(maintRows().map(r=>r.mR).filter(Boolean))].sort()}catch(_){}const rng=mm.length?` · months ${monLabel(mm[0])} – ${monLabel(mm[mm.length-1])}`:"";
+  if(st.state==="ok")return`<p class="sub" style="margin:-6px 0 14px">Calculated from the Google Sheet tab <strong>${esc(c.tab||"Expense from PM (Main) All")}</strong> · months by the date in column R · ${fmtN(st.n)} expense lines${rng} · read ${esc(new Date(st.at).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"}))} · <a href="#updates">Data sources</a></p>${(()=>{const n=maintRows().filter(r=>!r.mR&&!r.arr).length;return n?`<div class="notice">${fmtN(n)} expense lines have no readable date in column R, so the Maintenance tab doesn’t count them in any month.</div>`:""})()}${MAINT_NODATE?`<div class="notice">${fmtN(MAINT_NODATE)} expense lines have no date at all (no Month, column R or arrival date) and are skipped${MAINT_MONTH_BAD.filter(Boolean).length?`, e.g. ${[...new Set(MAINT_MONTH_BAD.filter(Boolean))].slice(0,4).map(x=>`“${esc(x)}”`).join(", ")}`:""}.</div>`:""}`;
   if(st.state==="err")return`<div class="notice bad">Can’t read the expense tab <strong>${esc(c.tab||"Expense from PM (Main) All")}</strong>: ${esc(st.msg)} <a href="#updates">Open Data sources</a></div>`;
   return`<p class="sub" style="margin:-6px 0 14px">Reading the Google Sheet tab <strong>${esc(c.tab||"Expense from PM (Main) All")}</strong>…</p>`}
 function maintSwitch(){const m=S.maintMode==="old"?"old":"live";return`<div class="segnav" role="tablist" aria-label="Maintenance views"><button role="tab" data-mmode="live" aria-selected="${m==="live"}" class="${m==="live"?"on":""}">Live workshop (Google Sheet)</button><button role="tab" data-mmode="old" aria-selected="${m==="old"}" class="${m==="old"?"on":""}">Cost &amp; repeat analysis</button></div>`}
@@ -3022,7 +3023,7 @@ function maintCarReport(q,R,carBy){
   if(!exact)return`<section class="panel"><div class="dch"><h2>Search: “${esc(q)}”</h2>${back}</div>${matches.length?`<p class="hint">${matches.length} plates match. Choose one:</p><div class="chips">${matches.slice(0,40).map(p=>`<button class="schip" data-act="mplatego" data-plate="${esc(p)}"><b>${esc(p)}</b></button>`).join("")}</div>`:`<p class="empty">No car plate matches “${esc(q)}”.</p>`}</section>`;
   const k=npk(exact);const rows=R.filter(r=>npk(r.plate)===k);const c=S.cars.find(x=>npk(x.plate)===k);
   const J=jobsOf(rows).sort((a,b)=>String(b.date||b.m).localeCompare(String(a.date||a.m)));
-  const tot=rows.reduce((s,r)=>s+(+r.amt||0),0);const all12=mMonths().slice(-12);const s12=rows.filter(r=>all12.includes(r.m)).reduce((s,r)=>s+(+r.amt||0),0);
+  const tot=rows.reduce((s,r)=>s+(+r.amt||0),0);const all12=[...new Set(R.map(r=>r.m).filter(Boolean))].sort().slice(-12);const s12=rows.filter(r=>all12.includes(r.m)).reduce((s,r)=>s+(+r.amt||0),0);
   const yr=String(today().getFullYear());const sy=rows.filter(r=>String(r.date||r.m).startsWith(yr)).reduce((s,r)=>s+(+r.amt||0),0);
   const g=(f)=>{const m=new Map();rows.forEach(r=>{const x=f(r)||"Not set";const e=m.get(x)||{k:x,v:0,n:new Set()};e.v+=+r.amt||0;e.n.add(r.date||r.m);m.set(x,e)});return[...m.values()].sort((a,b)=>b.v-a.v)};
   const byCat=g(r=>r.cat),byBc=g(r=>r.bc),bySup=g(r=>r.sup);
@@ -3082,10 +3083,10 @@ function svcPanel(J,cur,pBtn,carName){
    </div></section>`;
 }
 function vMaintNew(){
-  const all=mMonths();
+  const RR=maintRows().map(r=>({...r,m:r.mR||""}));const all=[...new Set(RR.map(r=>r.m).filter(Boolean))].sort();
   if(!all.length)return`<div class="empty"><h2>No maintenance records yet</h2><p>They come from the Google Sheet tab “Expense from PM (Main) All”. Check its status under <a href="#updates">Data sources</a>.</p></div>`;
   const cur=all.includes(S.mMonth)?S.mMonth:all[all.length-1],ci=all.indexOf(cur),prev=ci>0?all[ci-1]:null;
-  const R=maintRows(),curRows=R.filter(r=>r.m===cur);const carBy=new Map(S.cars.map(c=>[normPlate(c.plate),c]));
+  const R=RR,curRows=R.filter(r=>r.m===cur);const carBy=new Map(S.cars.map(c=>[normPlate(c.plate),c]));
   const J=jobsOf(R),Jc=J.filter(j=>j.m===cur),Jp=prev?J.filter(j=>j.m===prev):[];
   const spend=a=>a.reduce((s,j)=>s+j.amt,0);
   const dOf=j=>parseD(j.date)||new Date(+j.m.slice(0,4),+j.m.slice(5)-1,1);
