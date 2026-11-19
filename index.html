@@ -224,6 +224,7 @@ body.p-nowrite [data-act=sellrecs],body.p-nowrite [data-act=sellclear],body.p-no
 #maintHost[hidden]{display:none!important}
 .fdot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:0}
 #acc-fault .statbar span{cursor:pointer}
+#acc-cars .dbar{grid-template-columns:minmax(0,160px) 1fr auto}
 #polHost[hidden]{display:none!important}
 .kmbar{display:inline-block;width:70px;height:7px;background:var(--sunk);border-radius:3px;overflow:hidden;vertical-align:middle}.kmbar span{display:block;height:100%;background:var(--accent)}
 .drvnow{background:var(--sunk);border-radius:8px;padding:10px 12px;margin-bottom:6px}
@@ -1330,7 +1331,7 @@ function ensurePolFrame(){
 "use strict";
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const S={cars:[],log:[],renewals:[],usage:[],uQ:"",uOwner:"",uSort:"total",uDir:-1,uFlag:"",uThr:"20",repMode:"month",repMonth:"",repFrom:"",repTo:"",accFault:"",accQ:"",accPer:"all",accAll:false,accidents:[],mPlate:"",mRout:"hide",mRcCat:"",mAllRc:false,mAllRcc:false,mAllJobs:false,carView:"cards",mMonth:"",majorAt:"300000",mAllCars:false,mAllCpk:false,mAllRep:false,invites:{},lastCode:"",people:{},accessMap:{},accessDefault:null,perm:null,plat:null,level:1,levelKnown:false,updMeta:{},updHist:[],sumSec:"cars",sdGroup:"supervisor",sfGroup:"owner",smGroup:"cat",drivers:[],dQ:"",dOwner:"",dSup:"",dFlag:"",dSort:"lic",dDir:1,sumMet:"n",sellGroup:"model",sellList:new Set(),sellAll:false,uOff:"40",ovOpen:new Set(),maint:[],mQ:"",mOwner:"",mCat:"",mPeriod:"12",mLimit:200,mSort:"amt",mDir:-1,rMatch:"desc",rDays:"60",rRout:"hide",rLimit:50,loaded:false,error:null,db:null,user:null,canWrite:true,names:{},
+const S={cars:[],log:[],renewals:[],usage:[],uQ:"",uOwner:"",uSort:"total",uDir:-1,uFlag:"",uThr:"20",accOwn:"",repMode:"month",repMonth:"",repFrom:"",repTo:"",accFault:"",accQ:"",accPer:"all",accAll:false,accidents:[],mPlate:"",mRout:"hide",mRcCat:"",mAllRc:false,mAllRcc:false,mAllJobs:false,carView:"cards",mMonth:"",majorAt:"300000",mAllCars:false,mAllCpk:false,mAllRep:false,invites:{},lastCode:"",people:{},accessMap:{},accessDefault:null,perm:null,plat:null,level:1,levelKnown:false,updMeta:{},updHist:[],sumSec:"cars",sdGroup:"supervisor",sfGroup:"owner",smGroup:"cat",drivers:[],dQ:"",dOwner:"",dSup:"",dFlag:"",dSort:"lic",dDir:1,sumMet:"n",sellGroup:"model",sellList:new Set(),sellAll:false,uOff:"40",ovOpen:new Set(),maint:[],mQ:"",mOwner:"",mCat:"",mPeriod:"12",mLimit:200,mSort:"amt",mDir:-1,rMatch:"desc",rDays:"60",rRout:"hide",rLimit:50,loaded:false,error:null,db:null,user:null,canWrite:true,names:{},
   view:"overview",q:"",fOwner:"",fLoc:"",fBrand:"",fFlag:"",sort:"urg",dir:1,groupBy:"owner",openGroup:null};
 
 /* ---------- Field config ---------- */
@@ -3250,10 +3251,11 @@ function parseAccSheet(X,ws){
   return out.sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
 }
 const accOpen=a=>a.status?!/close|done|finish|complete|settled|solved|ok$|^ok/i.test(a.status):false;
+const accOwner=a=>{const c=S.cars.find(x=>npk(x.plate)===npk(a.plate));return(c&&c.owner)||"Not in car list"};
 const accFor=c=>(S.accidents||[]).filter(a=>npk(a.plate)===npk(c.plate||c));
 function accTable(L,showCar){
-  return`<div class="tw"><table><thead><tr><th>Date</th>${showCar?"<th>Car</th>":""}<th>Driver</th><th>Type</th><th>Location</th><th class="num">Cost (MMK)</th><th>Status</th><th></th></tr></thead><tbody>
-  ${L.map(a=>{const c=S.cars.find(x=>npk(x.plate)===npk(a.plate));return`<tr style="cursor:default" class="${accOpen(a)?"flag-warn":""}"><td>${a.date?fmtD(a.date):"—"}</td>${showCar?`<td>${c?`<button class="chipbtn" data-car="${esc(c._id)}"><span class="plate">${esc(a.plate)}</span></button>`:`<span class="plate">${esc(a.plate)}</span>`}</td>`:""}<td>${esc(a.driver||"—")}</td><td>${esc(a.type||"—")}</td><td>${esc(a.location||"—")}</td><td class="num">${a.cost!=null?fmtN(a.cost):"—"}</td><td>${a.status?`<span class="pill ${accOpen(a)?"warn":"ok"}">${esc(a.status)}</span>`:"—"}</td>
+  return`<div class="tw"><table><thead><tr><th>Date</th>${showCar?"<th>Car</th><th>Owner</th>":""}<th>Driver</th><th>Type</th><th>Location</th><th class="num">Cost (MMK)</th><th>Status</th><th></th></tr></thead><tbody>
+  ${L.map(a=>{const c=S.cars.find(x=>npk(x.plate)===npk(a.plate));return`<tr style="cursor:default" class="${accOpen(a)?"flag-warn":""}"><td>${a.date?fmtD(a.date):"—"}</td>${showCar?`<td>${c?`<button class="chipbtn" data-car="${esc(c._id)}"><span class="plate">${esc(a.plate)}</span></button>`:`<span class="plate">${esc(a.plate)}</span>`}</td><td>${esc(accOwner(a))}</td>`:""}<td>${esc(a.driver||"—")}</td><td>${esc(a.type||"—")}</td><td>${esc(a.location||"—")}</td><td class="num">${a.cost!=null?fmtN(a.cost):"—"}</td><td>${a.status?`<span class="pill ${accOpen(a)?"warn":"ok"}">${esc(a.status)}</span>`:"—"}</td>
    <td><details class="accd"><summary>Details</summary><dl class="spec accspec">${Object.entries(a.all).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(/^\d{4}-\d\d-\d\d$/.test(String(v))?fmtD(v):v)}</dd></div>`).join("")}</dl></details></td></tr>`}).join("")}
   </tbody></table></div>`;
 }
@@ -3268,6 +3270,7 @@ function vAcc(){
   const per=S.accPer||"all";const cut=per==="12"?(()=>{const d=new Date(td);d.setMonth(d.getMonth()-12);return isoD(d)})():per==="y"?y+"-01-01":"";
   const q=(S.accQ||"").trim().toLowerCase();
   let L=A.filter(a=>!cut||(a.date||"")>=cut);if(S.accFault)L=L.filter(a=>(a.fault||"Not set")===S.accFault);
+  const LnoOwn=L;if(S.accOwn)L=L.filter(a=>accOwner(a)===S.accOwn);
   if(q)L=L.filter(a=>[a.plate,a.driver,a.location,a.type,a.desc,a.status,a.fault].some(v=>String(v||"").toLowerCase().includes(q)));
   const cnt=(arr,f)=>{const m=new Map();arr.forEach(a=>{const k=f(a);if(!k)return;m.set(k,(m.get(k)||0)+1)});return[...m.entries()].sort((a,b)=>b[1]-a[1])};
   const byCar=cnt(L,a=>a.plate),byDrv=cnt(L,a=>a.driver),byType=cnt(L,a=>a.type),byLoc=cnt(L,a=>a.location),byStat=cnt(L,a=>a.status),byFault=cnt(L,a=>a.fault);
@@ -3277,16 +3280,18 @@ function vAcc(){
   const thisY=A.filter(a=>(a.date||"").startsWith(y)).length,lastY=A.filter(a=>(a.date||"").startsWith(String(+y-1))).length,thisM=A.filter(a=>(a.date||"").startsWith(ym)).length;
   const ins=L.filter(a=>a.insurance&&!/^(no|n\/a|-|none|not)/i.test(a.insurance)).length;
   const months=[];for(let i=11;i>=0;i--){const d=new Date(td.getFullYear(),td.getMonth()-i,1);months.push(`${d.getFullYear()}-${pad(d.getMonth()+1)}`)}
-  const mrows=months.map(m=>{const x=A.filter(a=>a.m===m);return{k:monLabel(m),v:x.length,c:x.reduce((s,a)=>s+(a.cost||0),0)}});const mmax=Math.max(1,...mrows.map(r=>r.v));
+  const AO=S.accOwn?A.filter(a=>accOwner(a)===S.accOwn):A;
+  const mrows=months.map(m=>{const x=AO.filter(a=>a.m===m);return{k:monLabel(m),v:x.length,c:x.reduce((s,a)=>s+(a.cost||0),0)}});const mmax=Math.max(1,...mrows.map(r=>r.v));
   const years=[...new Set(A.map(a=>(a.date||"").slice(0,4)).filter(Boolean))].sort();
-  const yrows=years.map(yy=>{const x=A.filter(a=>(a.date||"").startsWith(yy));return{k:yy,v:x.length,c:x.reduce((s,a)=>s+(a.cost||0),0)}});
+  const yrows=years.map(yy=>{const x=AO.filter(a=>(a.date||"").startsWith(yy));return{k:yy,v:x.length,c:x.reduce((s,a)=>s+(a.cost||0),0)}});
   const bar=(list,go,n)=>dBars(list.slice(0,n||8).map(([k,v])=>({k,v})),0,go);
+  const carLbl=list=>list.map(([k,v])=>[`${k} · ${accOwner({plate:k})}`,v,k]);
   const plateGo=r=>{const c=S.cars.find(x=>npk(x.plate)===npk(r.k));return c?`data-car="${esc(c._id)}"`:`data-accq="${esc(r.k)}"`};
   const shown=S.accAll?L:L.slice(0,20);
   const noDate=A.filter(a=>!a.date).length;const DG=ACC_DIAG;
   const diag=noDate?`<div class="notice">${fmtN(noDate)} of ${fmtN(A.length)} accidents have a date in <strong>column A</strong> (“${esc(DG?DG.header:"")}”) that couldn’t be read${DG&&DG.bad.length?`, for example ${DG.bad.map(x=>`“${esc(x)}”`).join(", ")}`:""}. They are listed below but left out of the monthly and yearly charts.</div>`:"";
   return`${diag}<div class="toolbar"><input type="search" id="accQ" placeholder="Search plate, driver, location, type…" value="${esc(S.accQ||"")}" aria-label="Search accidents">
-    ${sel("accPer",per,[["all","All records"],["y",`This year (${y})`],["12","Last 12 months"]],"Period")}${S.accFault?`<span class="pill warn" style="font-size:13px">Fault level: ${esc(S.accFault)}</span><button class="btn ghost" data-accfault="" style="padding:3px 10px">Clear</button>`:""}<span class="count">${L.length} of ${A.length} accidents</span></div>
+    ${sel("accPer",per,[["all","All records"],["y",`This year (${y})`],["12","Last 12 months"]],"Period")}${sel("accOwn",S.accOwn||"",[["","All owners"],...[...new Set(A.map(accOwner))].sort().map(o=>[o,o])],"Owner")}${S.accFault?`<span class="pill warn" style="font-size:13px">Fault level: ${esc(S.accFault)}</span><button class="btn ghost" data-accfault="" style="padding:3px 10px">Clear</button>`:""}<span class="count">${L.length} of ${A.length} accidents</span></div>
   <div class="kpis">
    ${kpi(fmtN(L.length),"Accidents","",`data-jump="acc-list"`,per==="all"?`${thisY} in ${y} · ${lastY} in ${+y-1}`:"")}
    ${kpi(fmtN(thisM),`This month (${monLabel(ym)})`,thisM?"t-warn":"t-ok",`data-jump="acc-trend"`)}
@@ -3302,25 +3307,29 @@ function vAcc(){
    <section class="panel"><h2>Accidents per year</h2>${yrows.length?dBars(yrows.map(r=>({k:r.k,v:r.v,label:`${r.v}${r.c?" · "+money(r.c):""}`})),0,()=>""):`<p class="sub">No dates.</p>`}
     ${byType.length?`<h3 class="dh3">By type</h3>${bar(byType,r=>`data-accq="${esc(r.k)}"`)}`:""}</section>
   </div>
-  ${(()=>{const F=new Map();L.forEach(a=>{const k=a.fault||"Not set";const x=F.get(k)||{k,n:0,c:0,cc:0,drv:new Map()};x.n++;if(a.cost!=null){x.c+=a.cost;x.cc++}if(a.driver)x.drv.set(a.driver,(x.drv.get(a.driver)||0)+1);F.set(k,x)});
+  ${(()=>{const OW=[...new Set(L.map(accOwner))].sort();const F=new Map();L.forEach(a=>{const k=a.fault||"Not set";const x=F.get(k)||{k,n:0,c:0,cc:0,drv:new Map(),own:new Map()};x.n++;x.own.set(accOwner(a),(x.own.get(accOwner(a))||0)+1);if(a.cost!=null){x.c+=a.cost;x.cc++}if(a.driver)x.drv.set(a.driver,(x.drv.get(a.driver)||0)+1);F.set(k,x)});
     const fl=[...F.values()].sort((a,b)=>b.n-a.n);if(!fl.length)return"";const tot=L.length||1;const PALF=["#B8372A","#D9822B","#C9A227","#2B7A54","#1F5FA8","#7A4FB5","#93A1AE","#5A6B7B"];const col=(k,i)=>k==="Not set"?"#93A1AE":PALF[i%PALF.length];
-    const fm=months.map(m=>({m,parts:fl.map((f,i)=>({k:f.k,v:A.filter(a=>a.m===m&&(a.fault||"Not set")===f.k).length,c:col(f.k,i)}))}));const fmx=Math.max(1,...fm.map(x=>x.parts.reduce((s,p)=>s+p.v,0)));
+    const fm=months.map(m=>({m,parts:fl.map((f,i)=>({k:f.k,v:AO.filter(a=>a.m===m&&(a.fault||"Not set")===f.k).length,c:col(f.k,i)}))}));const fmx=Math.max(1,...fm.map(x=>x.parts.reduce((s,p)=>s+p.v,0)));
     return`<section class="panel hl" id="acc-fault"><h2>Fault level <span class="sub" style="font-family:var(--sans);font-size:13px;font-weight:400">(column R${ACC_DIAG&&ACC_DIAG.faultHeader?` · “${esc(ACC_DIAG.faultHeader)}”`:""})</span></h2>
      <div class="statbar" style="height:26px;margin-bottom:8px">${fl.map((f,i)=>`<span style="width:${f.n/tot*100}%;background:${col(f.k,i)}" title="${esc(f.k)}: ${f.n}" data-accfault="${esc(f.k)}">${f.n/tot>.07?Math.round(f.n/tot*100)+"%":""}</span>`).join("")}</div>
-     <div class="tw"><table><thead><tr><th>Fault level</th><th class="num">Accidents</th><th class="num">Share</th><th class="num">Total cost (MMK)</th><th class="num">Avg cost</th><th>Drivers with most</th></tr></thead><tbody>
-      ${fl.map((f,i)=>`<tr data-accfault="${esc(f.k)}" tabindex="0"><td><i class="fdot" style="background:${col(f.k,i)}"></i><strong>${esc(f.k)}</strong></td><td class="num">${f.n}</td><td class="num">${Math.round(f.n/tot*100)}%</td><td class="num">${f.cc?fmtN(f.c):"—"}</td><td class="num">${f.cc?fmtN(f.c/f.cc):"—"}</td><td>${[...f.drv.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([d,n])=>`${esc(d)} (${n})`).join(", ")||"—"}</td></tr>`).join("")}
+     <div class="tw"><table><thead><tr><th>Fault level</th><th class="num">Accidents</th><th class="num">Share</th><th class="num">Total cost (MMK)</th><th class="num">Avg cost</th>${OW.map(o=>`<th class="num">${esc(o)}</th>`).join("")}<th>Drivers with most</th></tr></thead><tbody>
+      ${fl.map((f,i)=>`<tr data-accfault="${esc(f.k)}" tabindex="0"><td><i class="fdot" style="background:${col(f.k,i)}"></i><strong>${esc(f.k)}</strong></td><td class="num">${f.n}</td><td class="num">${Math.round(f.n/tot*100)}%</td><td class="num">${f.cc?fmtN(f.c):"—"}</td><td class="num">${f.cc?fmtN(f.c/f.cc):"—"}</td>${OW.map(o=>`<td class="num">${f.own.get(o)||""}</td>`).join("")}<td>${[...f.drv.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([d,n])=>`${esc(d)} (${n})`).join(", ")||"—"}</td></tr>`).join("")}
      </tbody></table></div>
      <h3 class="dh3">Fault level per month · 12 months</h3><div class="legend">${fl.map((f,i)=>`<span><i style="background:${col(f.k,i)}"></i>${esc(f.k)}</span>`).join("")}</div>
      <div class="bars">${fm.map(x=>{const t=x.parts.reduce((s,p)=>s+p.v,0);return`<div class="bar mbar cbar"><span>${monLabel(x.m)}</span><span class="track stack">${x.parts.filter(p=>p.v).map(p=>`<span class="seg" style="width:${p.v/fmx*100}%;background:${p.c}" title="${esc(p.k)}: ${p.v}"></span>`).join("")}</span><span class="num">${t}</span><span class="sub"></span></div>`}).join("")}</div>
      <p class="sub" style="margin-top:8px">Select a fault level to list its accidents.</p></section>`})()}
   <div class="cols">
-   <section class="panel" id="acc-cars"><h2>Cars with most accidents</h2>${bar(byCar,plateGo,10)}</section>
-   <section class="panel" id="acc-drv"><h2>${byDrv.length?"Drivers with most accidents":"By owner"}</h2>${byDrv.length?bar(byDrv,r=>`data-accq="${esc(r.k)}"`,10):bar(byOwner,()=>"")}</section>
+   <section class="panel" id="acc-cars"><h2>Cars with most accidents</h2>${dBars(byCar.slice(0,10).map(([k,v])=>({k:`${k} · ${accOwner({plate:k})}`,v,p:k})),0,r=>plateGo({k:r.p}))}</section>
+   <section class="panel" id="acc-drv"><h2>Drivers with most accidents</h2>${byDrv.length?bar(byDrv,r=>`data-accq="${esc(r.k)}"`,10):`<p class="sub">No driver column.</p>`}</section>
   </div>
   <div class="cols">
    ${byLoc.length?`<section class="panel"><h2>By location</h2>${bar(byLoc,r=>`data-accq="${esc(r.k)}"`,10)}</section>`:""}
-   <section class="panel"><h2>By owner</h2>${bar(byOwner,()=>"")}${byStat.length?`<h3 class="dh3">Status</h3>${bar(byStat,r=>`data-accq="${esc(r.k)}"`)}`:""}</section>
+   <section class="panel"><h2>Status</h2>${byStat.length?bar(byStat,r=>`data-accq="${esc(r.k)}"`):`<p class="sub">No status column.</p>`}</section>
   </div>
+  ${(()=>{const OW2=[...new Set(LnoOwn.map(accOwner))].sort();if(!OW2.length)return"";const ag=o=>{const x=LnoOwn.filter(a=>accOwner(a)===o);return{n:x.length,cars:new Set(x.map(a=>npk(a.plate))).size,open:x.filter(accOpen).length,cost:x.reduce((s,a)=>s+(a.cost||0),0)}};
+    return`<section class="panel" id="acc-owner"><h2>By owner</h2><div class="tw"><table><thead><tr><th>Owner</th><th class="num">Accidents</th><th class="num">Cars involved</th><th class="num">Still open</th><th class="num">Cost (MMK)</th>${months.slice(-6).map(m=>`<th class="num">${monLabel(m)}</th>`).join("")}</tr></thead><tbody>
+     ${OW2.map(o=>{const g=ag(o);return`<tr data-accown="${esc(o)}" tabindex="0" class="${S.accOwn===o?"flag-warn":""}"><td><strong>${esc(o)}</strong></td><td class="num">${g.n}</td><td class="num">${g.cars}</td><td class="num">${g.open||""}</td><td class="num">${g.cost?fmtN(g.cost):"—"}</td>${months.slice(-6).map(m=>`<td class="num">${A.filter(a=>a.m===m&&accOwner(a)===o).length||""}</td>`).join("")}</tr>`}).join("")}
+    </tbody></table></div><p class="sub">Last 6 months on the right. Select an owner to filter the whole page.</p></section>`})()}
   ${open.length?`<section class="panel" id="acc-open"><h2>Still open <span class="pill warn">${open.length}</span></h2>${accTable(open.slice(0,10),true)}</section>`:""}
   <section class="panel" id="acc-list"><h2>Accident records <span class="pill none">${L.length}</span></h2><p class="hint">Newest first. Click <strong>Details</strong> to see every column from the sheet.</p>${accTable(shown,true)}
    ${L.length>20?`<p style="margin:8px 0 0"><button class="btn ghost" data-act="accall" style="padding:4px 12px">${S.accAll?"Show latest 20":`Show all ${L.length}`}</button></p>`:""}</section>`;
@@ -3803,7 +3812,7 @@ document.addEventListener("click",e=>{
   {const ad=e.target.closest("[data-accadd]");if(ad){const id=ad.dataset.accadd;saveAccess(id,{level:ad.dataset.lvl||"1",sections:ALLSEC,upload:false,export:true});const i=$("#accSearch");if(i)i.value="";const r=$("#accResults");if(r)r.innerHTML="";return}
    const rm=e.target.closest('[data-acc="remove"]');if(rm){const id=rm.closest("tr").dataset.accid;if(confirm(`Remove ${S.names[id]||"this person"}? They will get the “Everyone else” access.`)){S.db.collection("access").doc(id).delete().then(()=>logIt("Edited","Access",`Removed ${S.names[id]||"a person"}`)).catch(()=>toast("Only Level 2 users can change access."))}return}}
   if(e.target.closest("[data-nopen]")&&!e.target.closest("[data-act]"))return;
-  const t=e.target.closest("[data-car],[data-go],[data-sort],[data-group],[data-act],[data-close],[data-pick],[data-usort],[data-uflag],[data-msort],[data-nav],[data-jump],[data-met],[data-repmode],[data-accfault],[data-accq],[data-rccat],[data-goto],[data-cflag],[data-cview],[data-mmode],[data-dsort],[data-dflag],[data-drv],[data-ssec],[data-sdpick],[data-sfpick],[data-smpick]");if(!t)return;
+  const t=e.target.closest("[data-car],[data-go],[data-sort],[data-group],[data-act],[data-close],[data-pick],[data-usort],[data-uflag],[data-msort],[data-nav],[data-jump],[data-met],[data-accown],[data-repmode],[data-accfault],[data-accq],[data-rccat],[data-goto],[data-cflag],[data-cview],[data-mmode],[data-dsort],[data-dflag],[data-drv],[data-ssec],[data-sdpick],[data-sfpick],[data-smpick]");if(!t)return;
   if(t.dataset.ssec){S.sumSec=t.dataset.ssec;S.openGroup=null;if(location.hash!=="#groups")location.hash="groups";else render();e.preventDefault();return}
   if(t.dataset.sdpick){S.sdGroup=t.dataset.sdpick;S.openGroup=null;render();return}
   if(t.dataset.sfpick){S.sfGroup=t.dataset.sfpick;render();return}
@@ -3820,6 +3829,7 @@ document.addEventListener("click",e=>{
     if(location.hash==="#"+v)render();else location.hash=v;
     setTimeout(()=>{const el=jump?document.getElementById(jump):(v==="cars"&&S.fFlag?document.querySelector(".listbar"):null);if(el)el.scrollIntoView({block:"start"});else if(!jump)window.scrollTo(0,0)},80);return}
   if(t.dataset.rccat){S.mRcCat=S.mRcCat===t.dataset.rccat?"":t.dataset.rccat;S.mAllRc=false;render();return}
+  if(t.dataset.accown!=null){S.accOwn=S.accOwn===t.dataset.accown?"":t.dataset.accown;render();return}
   if(t.dataset.accfault!=null){S.accFault=S.accFault===t.dataset.accfault?"":t.dataset.accfault;render();if(S.accFault)setTimeout(()=>{const el=document.getElementById("acc-list");if(el)el.scrollIntoView({block:"start"})},80);return}
   if(t.dataset.accq){S.accQ=t.dataset.accq;if(location.hash!=="#acc")location.hash="acc";else render();setTimeout(()=>{const el=document.getElementById("acc-list");if(el)el.scrollIntoView({block:"start"})},80);return}
   if(t.dataset.repmode){S.repMode=t.dataset.repmode;render();return}
@@ -3844,7 +3854,7 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="mplate"){S.mPlate=e.target.value.trim();S.mAllJobs=false;render();return}if(e.key!=="Enter")return;const tr=e.target.closest&&e.target.closest("tr[data-car],tr[data-group],tr[data-drv],[data-sdpick],[data-sfpick],[data-smpick]");if(tr)tr.click()});
 document.addEventListener("input",e=>{if(e.target.id==="q"){S.q=e.target.value;render()}else if(e.target.id==="uq"){S.uQ=e.target.value;render()}else if(e.target.id==="dq"){S.dQ=e.target.value;render()}else if(e.target.id==="accQ"){S.accQ=e.target.value;render()}else if(e.target.id==="accSearch"){accSearch(e.target.value)}else if(e.target.id==="mq"){S.mQ=e.target.value;S.mLimit=200;render()}});
-document.addEventListener("change",e=>{if(e.target.id==="carSort"){S.sort=e.target.value;S.dir=1;render();return}if(e.target.dataset&&e.target.dataset.acc&&e.target.dataset.acc!=="remove"){accChange(e.target);return}if(e.target.dataset&&e.target.dataset.sellpick){const n=new Set(S.sellList);const id=e.target.dataset.sellpick;if(e.target.checked)n.add(id);else n.delete(id);saveSellList(n);return}const id=e.target.id;if(["fOwner","fLoc","fBrand","fFlag","groupBy","uOwner","uFlag","uThr","uOff","mPeriod","mOwner","mCat","rMatch","rDays","rRout","sellGroup","repMonth","repFrom","repTo","accPer","mRout","carSort","mMonth","majorAt","dOwner","dSup","dFlag"].includes(id)){S[id]=e.target.value;if(id==="groupBy")S.openGroup=null;render()}});
+document.addEventListener("change",e=>{if(e.target.id==="carSort"){S.sort=e.target.value;S.dir=1;render();return}if(e.target.dataset&&e.target.dataset.acc&&e.target.dataset.acc!=="remove"){accChange(e.target);return}if(e.target.dataset&&e.target.dataset.sellpick){const n=new Set(S.sellList);const id=e.target.dataset.sellpick;if(e.target.checked)n.add(id);else n.delete(id);saveSellList(n);return}const id=e.target.id;if(["fOwner","fLoc","fBrand","fFlag","groupBy","uOwner","uFlag","uThr","uOff","mPeriod","mOwner","mCat","rMatch","rDays","rRout","sellGroup","accOwn","repMonth","repFrom","repTo","accPer","mRout","carSort","mMonth","majorAt","dOwner","dSup","dFlag"].includes(id)){S[id]=e.target.value;if(id==="groupBy")S.openGroup=null;render()}});
 document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.dataset&&d.dataset.ov){if(d.open)S.ovOpen.add(d.dataset.ov);else S.ovOpen.delete(d.dataset.ov)}},true);
 $("#addBtn").addEventListener("click",()=>openForm());
 $("#exportBtn").addEventListener("click",()=>{if(S.perm&&!S.perm.export)return;exportAll()});
