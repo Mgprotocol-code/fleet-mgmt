@@ -2298,7 +2298,7 @@ function dateCands(X,v){
   return[];
 }
 const pickDate=(c,m)=>!c.length?null:c.length===1||!m?c[0]:(c.find(x=>x.slice(0,7)===m)||c.find(x=>x<=isoD(today()))||c[0]);
-let MAINT_ARR_INFO=null,MAINT_MONTH_BAD=[],MAINT_NODATE=0;
+let MAINT_ARR_INFO=null,MAINT_MONTH_BAD=[],MAINT_NODATE=0,MAINT_R_INFO=null;
 function monthOf(X,v){
   if(v==null||v==="")return null;const ok=(y,m)=>y>=2015&&y<=2100&&m>=1&&m<=12?`${y}-${pad(m)}`:null;
   if(typeof v==="number"){const p=X.SSF.parse_date_code(v);return p?ok(p.y,p.m):null}
@@ -2318,6 +2318,7 @@ function readMaintSheet(X,ws){
   const seen={};const cols=raw[hi].map(h=>{const n=mHead(h);seen[n]=(seen[n]||0)+1;if(n==="car type")return seen[n]===1?"ct":null;return seen[n]===1?(MMAP[n]||null):null});
   raw[hi].forEach((h,i)=>{if(!cols[i]&&/arriv|arrive|car in date|in date|received/.test(mHead(h))&&!cols.includes("arr"))cols[i]="arr"});if(!cols.includes("arr")){if(cols[31]&&cols[31]!=="arr")cols[cols.indexOf(cols[31])]=null;cols[31]="arr"}
   for(let k=0;k<cols.length;k++)if(cols[k]==="bc")cols[k]=null;cols[25]="bc"; // column Z = repair category
+  const R_COL=17;MAINT_R_INFO={header:String(raw[hi][R_COL]??"(no heading)"),empty:0,bad:0,ok:0,samples:[]};
   MAINT_MONTH_BAD=[];MAINT_NODATE=0;const arrCol=cols.indexOf("arr");MAINT_ARR_INFO={col:arrCol,letter:arrCol>=0?X.utils.encode_col(arrCol):"?",header:String(raw[hi][arrCol]??"(no heading)"),filled:0,read:0,samples:[]};
   const out=[];
   raw.forEach((r,ri)=>{if(ri<=hi||!r)return;const t=txt[ri]||[];const d={};
@@ -2332,7 +2333,8 @@ function readMaintSheet(X,ws){
     if(!d.plate)d.plate="No plate";
     if(d.amt==null)d.amt=(d.tot||0)-(d.disc||0);
     if(d._date){const v=pickDate(d._date,null);if(v)d.date=v;else if(d._date.length===0)MAINT_MONTH_BAD.push(String(t[cols.indexOf("date")]??""))}delete d._date;
-    d.mR=d.date?d.date.slice(0,7):""; // Maintenance tab: month from column R only
+    {const rv=r[17];let rd=null;if(rv==null||String(rv).trim()===""){MAINT_R_INFO.empty++}else{rd=pickDate(dateCands(X,rv),null);if(rd)MAINT_R_INFO.ok++;else{MAINT_R_INFO.bad++;if(MAINT_R_INFO.samples.length<5)MAINT_R_INFO.samples.push(String(t[17]??rv))}}
+     d.rDate=rd||"";d.mR=rd?rd.slice(0,7):""} // Maintenance tab: month from column R only (by position)
     if(!d.m&&d.date)d.m=d.date.slice(0,7); // other sections: Month column, column R as fallback
     if(d._arr){const v=pickDate(d._arr,d.m||d.mR||null);if(v){d.arr=v;MAINT_ARR_INFO.read++}}delete d._arr;
     if(!d.m&&!d.mR&&!d.arr){MAINT_NODATE++;return}
@@ -2783,7 +2785,7 @@ function inviteSection(){
   </section>`;
 }
 function maintSrcNote(){const st=(S.srcStatus||{}).maint||{};const c=srcCfg("maint")||{};let mm=[];try{mm=[...new Set(maintRows().map(r=>r.mR).filter(Boolean))].sort()}catch(_){}const rng=mm.length?` · months ${monLabel(mm[0])} – ${monLabel(mm[mm.length-1])}`:"";
-  if(st.state==="ok")return`<p class="sub" style="margin:-6px 0 14px">Calculated from the Google Sheet tab <strong>${esc(c.tab||"Expense from PM (Main) All")}</strong> · months by the date in column R · ${fmtN(st.n)} expense lines${rng} · read ${esc(new Date(st.at).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"}))} · <a href="#updates">Data sources</a></p>${(()=>{const n=maintRows().filter(r=>!r.mR&&!r.arr).length;return n?`<div class="notice">${fmtN(n)} expense lines have no readable date in column R, so the Maintenance tab doesn’t count them in any month.</div>`:""})()}${MAINT_NODATE?`<div class="notice">${fmtN(MAINT_NODATE)} expense lines have no date at all (no Month, column R or arrival date) and are skipped${MAINT_MONTH_BAD.filter(Boolean).length?`, e.g. ${[...new Set(MAINT_MONTH_BAD.filter(Boolean))].slice(0,4).map(x=>`“${esc(x)}”`).join(", ")}`:""}.</div>`:""}`;
+  if(st.state==="ok")return`<p class="sub" style="margin:-6px 0 14px">Calculated from the Google Sheet tab <strong>${esc(c.tab||"Expense from PM (Main) All")}</strong> · months by the date in column R · ${fmtN(st.n)} expense lines${rng} · read ${esc(new Date(st.at).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"}))} · <a href="#updates">Data sources</a></p>${(()=>{const I=MAINT_R_INFO;if(!I||(!I.empty&&!I.bad))return"";return`<div class="notice">Column R (heading “${esc(I.header)}”): <strong>${fmtN(I.ok)}</strong> lines have a date, <strong>${fmtN(I.empty)}</strong> are <strong>empty</strong>${I.bad?`, <strong>${fmtN(I.bad)}</strong> have a value that isn’t a date (e.g. ${I.samples.map(x=>`“${esc(x)}”`).join(", ")})`:""}. Lines without a date in column R aren’t counted in any month on this tab.</div>`})()}${MAINT_NODATE?`<div class="notice">${fmtN(MAINT_NODATE)} expense lines have no date at all (no Month, column R or arrival date) and are skipped${MAINT_MONTH_BAD.filter(Boolean).length?`, e.g. ${[...new Set(MAINT_MONTH_BAD.filter(Boolean))].slice(0,4).map(x=>`“${esc(x)}”`).join(", ")}`:""}.</div>`:""}`;
   if(st.state==="err")return`<div class="notice bad">Can’t read the expense tab <strong>${esc(c.tab||"Expense from PM (Main) All")}</strong>: ${esc(st.msg)} <a href="#updates">Open Data sources</a></div>`;
   return`<p class="sub" style="margin:-6px 0 14px">Reading the Google Sheet tab <strong>${esc(c.tab||"Expense from PM (Main) All")}</strong>…</p>`}
 function maintSwitch(){const m=S.maintMode==="old"?"old":"live";return`<div class="segnav" role="tablist" aria-label="Maintenance views"><button role="tab" data-mmode="live" aria-selected="${m==="live"}" class="${m==="live"?"on":""}">Live workshop (Google Sheet)</button><button role="tab" data-mmode="old" aria-selected="${m==="old"}" class="${m==="old"?"on":""}">Cost &amp; repeat analysis</button></div>`}
@@ -3083,7 +3085,7 @@ function svcPanel(J,cur,pBtn,carName){
    </div></section>`;
 }
 function vMaintNew(){
-  const RR=maintRows().map(r=>({...r,m:r.mR||""}));const all=[...new Set(RR.map(r=>r.m).filter(Boolean))].sort();
+  const RR=maintRows().map(r=>({...r,m:r.mR||"",date:r.rDate||""}));const all=[...new Set(RR.map(r=>r.m).filter(Boolean))].sort();
   if(!all.length)return`<div class="empty"><h2>No maintenance records yet</h2><p>They come from the Google Sheet tab “Expense from PM (Main) All”. Check its status under <a href="#updates">Data sources</a>.</p></div>`;
   const cur=all.includes(S.mMonth)?S.mMonth:all[all.length-1],ci=all.indexOf(cur),prev=ci>0?all[ci-1]:null;
   const R=RR,curRows=R.filter(r=>r.m===cur);const carBy=new Map(S.cars.map(c=>[normPlate(c.plate),c]));
