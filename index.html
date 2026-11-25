@@ -2120,7 +2120,7 @@ function readFuelSheet(X,ws){
   return out;
 }
 async function onFuelUpload(file){const __b=fleetSnap();
-  const dl=$("#upDlg");dl.style.width="min(820px,calc(100vw - 24px))";
+  const dl=$("#upDlg");dl.style.width="min(980px,calc(100vw - 24px))";
   const head=`<div class="dh"><h2 id="upTitle">Upload ${esc(file.name)}</h2><button class="btn ghost x" data-close>Cancel</button></div>`;
   dl.innerHTML=head+`<div class="db"><p>Reading the file…</p></div>`;if(!dl.open)dl.showModal();
   const t=today();const sheets=[];
@@ -2129,26 +2129,50 @@ async function onFuelUpload(file){const __b=fleetSnap();
       sheets.push({name:n,rows,mi,year:ym?+ym[1]:(mi>t.getMonth()?t.getFullYear()-1:t.getFullYear())})});
   }catch(ex){dl.querySelector(".db").innerHTML=`<div class="notice bad">${ex.message==="load"?"The Excel reader didn’t load. Check your connection and try again.":"This file couldn’t be read. Save it as .xlsx and try again."}</div>`;return}
   const fleet=new Set(S.cars.map(c=>normPlate(c.plate)));
+  const MON_RE="(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*";
+  const periodOf=n=>{const s=n.toLowerCase();let m=new RegExp("(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*(?:"+MON_RE+")?\\s*(?:to|-|–|~|until)\\s*(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*(?:"+MON_RE+")?").exec(s);
+    if(m){const a=+m[1],b=+m[3];if(a>=1&&a<=31&&b>=1&&b<=31&&a<=b)return{key:`${pad(a)}-${pad(b)}`,a,b}}return{key:"full",a:1,b:31}};
+  sheets.forEach(s=>{s.per=periodOf(s.name)});
   const mo=s=>`${s.year}-${pad(s.mi+1)}`;
+  const perLabel=(p,m)=>p.key==="full"?"whole month":`${p.a}–${p.b} ${monLabel(m).split(" ")[0]}`;
+  const sumKm=rs=>(rs||[]).reduce((a,r)=>a+(+r.km||0),0),sumF=rs=>(rs||[]).reduce((a,r)=>a+(+r.fuelTotal||0),0);
+  const existingPeriods=ex=>{if(!ex)return{};if(ex.periods&&Object.keys(ex.periods).length)return ex.periods;return{full:{name:ex.sheet||"",file:ex.file||"",rows:ex.rows||[],a:1,b:31}}};
+  function mergeRows(periods){const by=new Map();Object.values(periods).sort((x,y)=>(x.a||0)-(y.a||0)).forEach(p=>(p.rows||[]).forEach(r=>{const k=normPlate(r.plate);const x=by.get(k);
+      if(!x){by.set(k,{...r});return}
+      ["km","fuelDenko","fuelTerminal","fuelOffice","fuelTotal"].forEach(f=>{if(r[f]!=null||x[f]!=null)x[f]=Math.round(((+x[f]||0)+(+r[f]||0))*100)/100});
+      if(r.startKm!=null&&(x.startKm==null||+r.startKm<+x.startKm))x.startKm=r.startKm;if(r.endKm!=null&&(x.endKm==null||+r.endKm>+x.endKm))x.endKm=r.endKm;
+      if(r.driver)x.driver=r.driver;Object.keys(r).forEach(f=>{if(x[f]==null&&r[f]!=null)x[f]=r[f]})}));return[...by.values()]}
+  const plan=()=>{const ok=sheets.filter(s=>s.rows&&s.rows.length&&s.mi>=0);const months=new Map();const dup=new Set();
+    ok.forEach(s=>{const m=mo(s);if(!months.has(m))months.set(m,{m,sheets:[]});const g=months.get(m);if(g.sheets.some(x=>x.per.key===s.per.key))dup.add(s.name);g.sheets.push(s)});
+    months.forEach(g=>{const ex=S.usage.find(u=>u.month===g.m);let per={...existingPeriods(ex)};const notes=[];
+      const newKeys=g.sheets.map(s=>s.per.key);
+      if(newKeys.includes("full")){if(Object.keys(per).length)notes.push("replaces the earlier upload for the whole month");per={}}
+      else if(per.full){notes.push("replaces the earlier whole-month upload");delete per.full}
+      g.sheets.forEach(s=>{if(per[s.per.key])s.repl=true;per[s.per.key]={name:s.name,file:file.name,rows:s.rows,a:s.per.a,b:s.per.b,at:new Date().toISOString()}});
+      g.periods=per;g.rows=mergeRows(per);g.ex=ex;g.notes=notes;
+      const ks=Object.values(per).filter(p=>p.a&&p.b&&!(p.a===1&&p.b===31)).sort((x,y)=>x.a-y.a);g.cover=ks.length?ks.map(p=>`${p.a}–${p.b}`).join(", ")+" "+monLabel(g.m).split(" ")[0]:"whole month"});
+    return{ok,months:[...months.values()],dup}};
   const paint=()=>{
-    const ok=sheets.filter(s=>s.rows&&s.rows.length&&s.mi>=0);
-    const seenM=new Set(),dupM=new Set();ok.forEach(s=>{const m=mo(s);if(seenM.has(m))dupM.add(m);seenM.add(m)});
-    dl.innerHTML=head+`<div class="db"><p style="margin-top:0">Each sheet becomes one month, linked to cars by plate. Uploading a month that already exists replaces it.</p>
-     <div class="tw"><table><thead><tr><th>Sheet</th><th>Month</th><th class="num">Cars</th><th>Not in car list</th><th class="num">Total km</th><th class="num">Fuel (L)</th><th>Status</th></tr></thead><tbody>
-     ${sheets.map((s,i)=>{if(!s.rows||!s.rows.length)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="6" class="sub">Skipped: no “CAR NO.” column or no rows</td></tr>`;
-       if(s.mi<0)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="6" class="sub">Skipped: the sheet name doesn’t say which month</td></tr>`;
-       const m=mo(s);const ex=S.usage.find(u=>u.month===m);const nfl=s.rows.filter(r=>!fleet.has(normPlate(r.plate)));
-       return`<tr style="cursor:default"><td>${esc(s.name)}</td><td><select data-yr="${i}" aria-label="Month for ${esc(s.name)}">${[t.getFullYear()-2,t.getFullYear()-1,t.getFullYear(),t.getFullYear()+1].map(y=>`<option value="${y}"${y===s.year?" selected":""}>${monLabel(`${y}-${pad(s.mi+1)}`)}</option>`).join("")}</select></td><td class="num">${s.rows.length}</td><td style="white-space:normal">${nfl.length?esc(nfl.map(r=>r.plate).join(", ")):"None"}</td><td class="num">${fmtN(s.rows.reduce((a,r)=>a+(+r.km||0),0))}</td><td class="num">${fmtN(s.rows.reduce((a,r)=>a+(+r.fuelTotal||0),0),1)}</td><td>${dupM.has(m)?`<span class="pill bad">Same month twice</span>`:ex?`<span class="pill warn">Replaces ${esc(ex.file||"earlier upload")}</span><div class="sub">Current ${fmtN((ex.rows||[]).reduce((a,r)=>a+(+r.km||0),0))} km · ${fmtN((ex.rows||[]).reduce((a,r)=>a+(+r.fuelTotal||0),0))} L → new ${fmtN(s.rows.reduce((a,r)=>a+(+r.km||0),0))} km · ${fmtN(s.rows.reduce((a,r)=>a+(+r.fuelTotal||0),0))} L</div>`:`<span class="pill ok">New month</span>`}</td></tr>`}).join("")}
-     </tbody></table></div></div>
-     <div class="df"><span class="form-err" id="upErr" role="alert">${dupM.size?"Two sheets point to the same month. Change the year on one of them.":""}</span><button class="btn" data-close>Cancel</button>${ok.length?`<button class="btn primary" id="fuelApply"${dupM.size?" disabled":""}>Save ${ok.length} month${ok.length>1?"s":""}</button>`:""}</div>`;
+    const P=plan();const {ok,dup}=P;
+    dl.innerHTML=head+`<div class="db"><p style="margin-top:0">Each sheet is linked to cars by plate. A sheet whose name has a day range (like “1 Nov to 10 Nov”) is <strong>added</strong> to that month; uploading the same days again replaces only those days. A sheet without a day range is the whole month.</p>
+     <div class="tw"><table><thead><tr><th>Sheet</th><th>Month</th><th>Days</th><th class="num">Cars</th><th>Not in car list</th><th class="num">Total km</th><th class="num">Fuel (L)</th><th>Status</th></tr></thead><tbody>
+     ${sheets.map((s,i)=>{if(!s.rows||!s.rows.length)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="7" class="sub">Skipped: no “CAR NO.” column or no rows</td></tr>`;
+       if(s.mi<0)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="7" class="sub">Skipped: the sheet name doesn’t say which month</td></tr>`;
+       const m=mo(s);const nfl=s.rows.filter(r=>!fleet.has(normPlate(r.plate)));const g=P.months.find(x=>x.m===m);
+       const st=dup.has(s.name)?`<span class="pill bad">Same days twice</span>`:s.repl?`<span class="pill warn">Replaces ${esc(perLabel(s.per,m))}</span>`:g.ex?`<span class="pill ok">Adds to ${monLabel(m)}</span>`:`<span class="pill ok">New month</span>`;
+       return`<tr style="cursor:default"><td>${esc(s.name)}</td><td><select data-yr="${i}" aria-label="Month for ${esc(s.name)}">${[t.getFullYear()-2,t.getFullYear()-1,t.getFullYear(),t.getFullYear()+1].map(y=>`<option value="${y}"${y===s.year?" selected":""}>${monLabel(`${y}-${pad(s.mi+1)}`)}</option>`).join("")}</select></td><td>${esc(perLabel(s.per,m))}</td><td class="num">${s.rows.length}</td><td style="white-space:normal">${nfl.length?esc(nfl.map(r=>r.plate).join(", ")):"None"}</td><td class="num">${fmtN(sumKm(s.rows))}</td><td class="num">${fmtN(sumF(s.rows),1)}</td><td>${st}</td></tr>`}).join("")}
+     </tbody></table></div>
+     ${P.months.length?`<h3 class="up-sec">After saving</h3><ul class="att">${P.months.map(g=>`<li style="grid-template-columns:1fr auto"><div class="what"><strong>${monLabel(g.m)}</strong> · covers ${esc(g.cover)}${g.notes.length?` · ${esc(g.notes.join("; "))}`:""}<small>${g.ex?`now ${fmtN(sumKm(g.ex.rows))} km · ${fmtN(sumF(g.ex.rows))} L → `:""}${fmtN(sumKm(g.rows))} km · ${fmtN(sumF(g.rows))} L · ${g.rows.length} cars</small></div></li>`).join("")}</ul>`:""}</div>
+     <div class="df"><span class="form-err" id="upErr" role="alert">${dup.size?"Two sheets cover the same days of the same month. Change the month on one of them.":""}</span><button class="btn" data-close>Cancel</button>${ok.length?`<button class="btn primary" id="fuelApply"${dup.size?" disabled":""}>Save</button>`:""}</div>`;
     dl.querySelectorAll("[data-yr]").forEach(el=>el.addEventListener("change",()=>{sheets[+el.dataset.yr].year=+el.value;paint()}));
     const ap=$("#fuelApply");if(!ap)return;
     ap.addEventListener("click",async()=>{ap.disabled=true;const err=$("#upErr");err.style.color="var(--muted)";let n=0;
       let by="";try{by=S.user?(await S.user.id())||"":""}catch(_){}
-      try{for(const s of ok){const m=mo(s);await S.db.collection("usage").doc(m).set({month:m,file:file.name,sheet:s.name,uploadedAt:new Date().toISOString(),by,rows:s.rows});err.textContent=`Saved ${++n} of ${ok.length}…`}
-        finishUpdate("usage",file.name,__b,`${ok.map(s=>monLabel(mo(s))).join(", ")}`,ok.flatMap(s=>{const m=mo(s);const ex=S.usage.find(u=>u.month===m);const sm=(rs,f)=>Math.round((rs||[]).reduce((a,r)=>a+(+r[f]||0),0));return[["Cars",(ex?ex.rows.length:""),s.rows.length],["Km",ex?sm(ex.rows,"km"):"",sm(s.rows,"km")],["Fuel (L)",ex?sm(ex.rows,"fuelTotal"):"",sm(s.rows,"fuelTotal")],["Office (L)",ex?sm(ex.rows,"fuelOffice"):"",sm(s.rows,"fuelOffice")]].map(([f,o,n])=>({w:monLabel(m),f,o:o===""?"new month":fmtN(o),n:fmtN(n)}))}));await logIt("Edited","Fuel & km",`Uploaded ${file.name}: ${ok.map(s=>monLabel(mo(s))).join(", ")}`);
-        dl.close();toast(`Saved ${ok.length} month${ok.length>1?"s":""} of driving records`);location.hash="usage"}
-      catch(ex){err.style.color="";err.textContent=(n?`${n} of ${ok.length} saved. `:"")+writeErr(ex);ap.disabled=false}});
+      try{for(const g of P.months){await S.db.collection("usage").doc(g.m).set({month:g.m,file:file.name,sheet:g.sheets.map(s=>s.name).join(", "),uploadedAt:new Date().toISOString(),by,periods:g.periods,cover:g.cover,rows:g.rows});err.textContent=`Saved ${++n} of ${P.months.length}…`}
+        finishUpdate("usage",file.name,__b,P.months.map(g=>`${monLabel(g.m)} (${g.cover})`).join(", "),P.months.flatMap(g=>{const ex=g.ex;const sm=(rs,f)=>Math.round((rs||[]).reduce((a,r)=>a+(+r[f]||0),0));return[["Cars",(ex?ex.rows.length:""),g.rows.length],["Km",ex?sm(ex.rows,"km"):"",sm(g.rows,"km")],["Fuel (L)",ex?sm(ex.rows,"fuelTotal"):"",sm(g.rows,"fuelTotal")],["Office (L)",ex?sm(ex.rows,"fuelOffice"):"",sm(g.rows,"fuelOffice")]].map(([f,o,nn])=>({w:monLabel(g.m),f,o:o===""?"new month":fmtN(o),n:fmtN(nn)}))}));
+        await logIt("Edited","Fuel & km",`Uploaded ${file.name}: ${P.months.map(g=>`${monLabel(g.m)} (${g.cover})`).join(", ")}`);
+        dl.close();toast(`Saved driving records: ${P.months.map(g=>`${monLabel(g.m)} (${g.cover})`).join(", ")}`);location.hash="usage"}
+      catch(ex){err.style.color="";err.textContent=(n?`${n} of ${P.months.length} saved. `:"")+writeErr(ex);ap.disabled=false}});
   };
   paint();
 }
