@@ -1860,7 +1860,7 @@ function vSumFuel(){
   if(!S.usage.length)return`<div class="empty"><h2>No driving & fuel records yet</h2><p>Upload them in the Driving & fuel tab.</p></div>`;
   const g=CGROUP[S.sfGroup]?S.sfGroup:"owner";const gf=CGROUP[g][1];const{out,months}=fuelRows();
   const L=v=>fmtN(v)+" L";
-  const st=[["Denko",sumA2(out,x=>x.r.fuelDenko)],["Terminal",sumA2(out,x=>x.r.fuelTerminal)],["Office",sumA2(out,x=>x.r.fuelOffice)]];
+  const st=[["Denko",sumA2(out,x=>x.r.fuelDenko)],["Terminal",sumA2(out,x=>x.r.fuelTerminal)],["Office",sumA2(out,x=>x.r.fuelOffice)],["Max Energy",sumA2(out,x=>x.r.fuelMax)]].filter((x,i)=>i<3||x[1]>0);
   const tot=st.reduce((s,x)=>s+x[1],0),km=sumA2(out,x=>x.r.km);
   const cards=[donutCard("Fuel by station",st.map((x,i)=>[x[0],x[1],L(x[1]),["#2F6DB5","#3A9C6B","#D9822B"][i]]),fmtN(tot/1000,1)+"k"),
     ...Object.entries(CGROUP).map(([k,[lab,f]])=>donutCard(`Fuel by ${lab.toLowerCase()}`,topParts(sumMap(out,x=>f(x.c),x=>x.r.fuelTotal),6,L),fmtN(tot/1000,1)+"k",`role="button" tabindex="0" data-sfpick="${k}" class="qs-card dn${g===k?" on":""}"`)),
@@ -1986,7 +1986,7 @@ function usageIndex(){
   const idx=new Map();
   S.usage.forEach(u=>(u.rows||[]).forEach(r=>{const k=normPlate(r.plate);if(!k)return;let e=idx.get(k);
     if(!e){e={plate:r.plate,owner:r.owner,brand:r.brand,model:r.model,months:{}};idx.set(k,e)}
-    const m=e.months[u.month]||(e.months[u.month]={km:0,fuel:0,rows:[]});m.km+=+r.km||0;m.fuel+=+r.fuelTotal||0;m.den=(m.den||0)+(+r.fuelDenko||0);m.ter=(m.ter||0)+(+r.fuelTerminal||0);m.off=(m.off||0)+(+r.fuelOffice||0);m.rows.push(r)}));
+    const m=e.months[u.month]||(e.months[u.month]={km:0,fuel:0,rows:[]});m.km+=+r.km||0;m.fuel+=+r.fuelTotal||0;m.den=(m.den||0)+(+r.fuelDenko||0);m.ter=(m.ter||0)+(+r.fuelTerminal||0);m.off=(m.off||0)+(+r.fuelOffice||0);m.max=(m.max||0)+(+r.fuelMax||0);m.rows.push(r)}));
   return idx;
 }
 function usageIssues(idx,months){
@@ -2103,8 +2103,8 @@ function usageHistory(c){
   const tk=rs.reduce((s,r)=>s+(+r.km||0),0),tf=rs.reduce((s,r)=>s+(+r.fuelTotal||0),0);
   return `<h3 class="sec">Driving &amp; fuel</h3>${rs.length?`<div class="tw" style="margin-bottom:18px"><table><thead><tr><th>Month</th><th>Driver</th><th class="num">Start km</th><th class="num">End km</th><th class="num">Km driven</th><th class="num">Denko (L)</th><th class="num">Terminal (L)</th><th class="num">Office (L)</th><th class="num">Fuel (L)</th><th class="num">Km/L</th></tr></thead><tbody>${rs.map(r=>`<tr style="cursor:default"><td>${monLabel(r.m)}</td><td>${esc(r.driver||"—")}</td><td class="num">${fmtN(r.startKm)}</td><td class="num">${fmtN(r.endKm)}</td><td class="num"><strong>${fmtN(r.km)}</strong></td><td class="num">${fmtN(r.fuelDenko||0)}</td><td class="num">${fmtN(r.fuelTerminal||0)}</td><td class="num">${fmtN(r.fuelOffice||0)}</td><td class="num">${fmtN(r.fuelTotal,1)}</td><td class="num">${+r.fuelTotal>0?fmtN(r.km/r.fuelTotal,1):"—"}</td></tr>`).join("")}</tbody><tfoot><tr><th>Total</th><th></th><th></th><th></th><th class="num">${fmtN(tk)}</th><th class="num">${fmtN(rs.reduce((s,r)=>s+(+r.fuelDenko||0),0))}</th><th class="num">${fmtN(rs.reduce((s,r)=>s+(+r.fuelTerminal||0),0))}</th><th class="num">${fmtN(rs.reduce((s,r)=>s+(+r.fuelOffice||0),0))}</th><th class="num">${fmtN(tf,1)}</th><th class="num">${tf?fmtN(tk/tf,1):"—"}</th></tr></tfoot></table></div>`:`<p class="sub" style="margin:0 0 18px">No driving records for this car.</p>`}`;
 }
-const UMAP={"date":"period","period":"period","date range":"period","driver name":"driver","car no.":"plate","car no":"plate","vehicle plate":"plate","brand":"brand","model name":"model","region":"region","owner":"owner","engine power":"engine","ou-1":"ou","ferry status":"ferry","start kilo":"startKm","end kilo":"endKm","total kilo":"km","denko fuel station":"fuelDenko","terminal fuel station":"fuelTerminal","office fuel":"fuelOffice","total fuel liters":"fuelTotal","total fuel litres":"fuelTotal"};
-const UNUM=new Set(["startKm","endKm","km","fuelDenko","fuelTerminal","fuelOffice","fuelTotal"]);
+const UMAP={"date":"period","period":"period","date range":"period","driver name":"driver","car no.":"plate","car no":"plate","vehicle plate":"plate","brand":"brand","model name":"model","region":"region","owner":"owner","engine power":"engine","ou-1":"ou","ferry status":"ferry","start kilo":"startKm","end kilo":"endKm","total kilo":"km","denko fuel station":"fuelDenko","terminal fuel station":"fuelTerminal","office fuel":"fuelOffice","total fuel liters":"fuelTotal","total fuel litres":"fuelTotal","denko fuel":"fuelDenko","denko":"fuelDenko","terminal fuel":"fuelTerminal","terminal":"fuelTerminal","max energy":"fuelMax","max energy fuel":"fuelMax","max energy fuel station":"fuelMax","total fuel":"fuelTotal","total fuel (l)":"fuelTotal"};
+const UNUM=new Set(["startKm","endKm","km","fuelDenko","fuelTerminal","fuelOffice","fuelMax","fuelTotal"]);
 const hNorm=h=>String(h??"").trim().toLowerCase().replace(/\s+/g," ");
 function readFuelSheet(X,ws){
   const rows=X.utils.sheet_to_json(ws,{header:1,raw:true,defval:null,blankrows:false});
@@ -2116,7 +2116,7 @@ function readFuelSheet(X,ws){
     if(UNUM.has(k)){const n=typeof v==="number"?v:Number(String(v).replace(/,/g,""));if(isNaN(n))return;v=Math.round(n*100)/100}else v=String(v);d[k]=v});
     if(!d.plate||/total/i.test(d.plate))return;
     if(d.km==null&&d.startKm!=null&&d.endKm!=null)d.km=d.endKm-d.startKm;
-    if(d.fuelTotal==null){const s=(d.fuelDenko||0)+(d.fuelTerminal||0)+(d.fuelOffice||0);if(s)d.fuelTotal=Math.round(s*100)/100}
+    if(d.fuelTotal==null){const s=(d.fuelDenko||0)+(d.fuelTerminal||0)+(d.fuelOffice||0)+(d.fuelMax||0);if(s)d.fuelTotal=Math.round(s*100)/100}
     out.push(d)});
   return out;
 }
@@ -2143,35 +2143,43 @@ async function onFuelUpload(file){const __b=fleetSnap();
   const MON_RE="(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*";
   const periodOf=n=>{const s=n.toLowerCase();let m=new RegExp("(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*(?:"+MON_RE+")?\\s*(?:to|-|–|~|until)\\s*(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*(?:"+MON_RE+")?").exec(s);
     if(m){const a=+m[1],b=+m[3];if(a>=1&&a<=31&&b>=1&&b<=31&&a<=b)return{key:`${pad(a)}-${pad(b)}`,a,b}}return{key:"full",a:1,b:31}};
-  sheets.forEach(s=>{s.per=s.per||periodOf(s.name)});
+  sheets.forEach(s=>{s.per=s.per||periodOf(s.name);if(s.rows&&s.rows.length){const hk=s.rows.some(r=>r.km!=null||r.startKm!=null||r.endKm!=null),hf=s.rows.some(r=>r.fuelTotal!=null||r.fuelDenko!=null||r.fuelOffice!=null||r.fuelTerminal!=null||r.fuelMax!=null);s.kind=hk&&hf?"both":hf?"fuel":"km";s.per={...s.per,key:`${s.kind}:${s.per.key}`}}});
+  const KM_F=["km","startKm","endKm"],FUEL_F=["fuelDenko","fuelTerminal","fuelOffice","fuelMax","fuelTotal"];
+  const kindOf=p=>p.kind||"both";const hasKm=k=>k==="km"||k==="both",hasFuel=k=>k==="fuel"||k==="both";
   const mo=s=>`${s.year}-${pad(s.mi+1)}`;
-  const perLabel=(p,m)=>p.key==="full"?"whole month":`${p.a}–${p.b} ${monLabel(m).split(" ")[0]}`;
+  const coverText=(per,m)=>{const mn=monLabel(m).split(" ")[0];const part=f=>{const ps=Object.values(per).filter(p=>f(kindOf(p))).sort((x,y)=>x.a-y.a);if(!ps.length)return"none";if(ps.some(p=>p.a===1&&p.b===31))return"whole month";return ps.map(p=>`${p.a}–${p.b}`).join(", ")+" "+mn};return`km ${part(hasKm)} · fuel ${part(hasFuel)}`};
+  const perLabel=(p,m)=>p.a===1&&p.b===31?"whole month":`${p.a}–${p.b} ${monLabel(m).split(" ")[0]}`;
   const sumKm=rs=>(rs||[]).reduce((a,r)=>a+(+r.km||0),0),sumF=rs=>(rs||[]).reduce((a,r)=>a+(+r.fuelTotal||0),0);
-  const existingPeriods=ex=>{if(!ex)return{};if(ex.periods&&Object.keys(ex.periods).length)return ex.periods;return{full:{name:ex.sheet||"",file:ex.file||"",rows:ex.rows||[],a:1,b:31}}};
-  function mergeRows(periods){const by=new Map();Object.values(periods).sort((x,y)=>(x.a||0)-(y.a||0)).forEach(p=>(p.rows||[]).forEach(r=>{const k=normPlate(r.plate);const x=by.get(k);
+  const existingPeriods=ex=>{if(!ex)return{};if(ex.periods&&Object.keys(ex.periods).length){const o={};Object.entries(ex.periods).forEach(([k,p])=>{const kd=p.kind||"both";o[k.includes(":")?k:`${kd}:${k}`]={...p,kind:kd}});return o}return{"both:full":{name:ex.sheet||"",file:ex.file||"",rows:ex.rows||[],a:1,b:31,kind:"both"}}};
+  function mergeRows(periods){const by=new Map();Object.values(periods).sort((x,y)=>(x.a||0)-(y.a||0)).forEach(p=>{const kd=kindOf(p);(p.rows||[]).forEach(r0=>{const r={...r0};
+      if(!hasKm(kd))KM_F.forEach(f=>delete r[f]);if(!hasFuel(kd))FUEL_F.forEach(f=>delete r[f]);
+      const k=normPlate(r.plate);const x=by.get(k);
       if(!x){by.set(k,{...r});return}
-      ["km","fuelDenko","fuelTerminal","fuelOffice","fuelTotal"].forEach(f=>{if(r[f]!=null||x[f]!=null)x[f]=Math.round(((+x[f]||0)+(+r[f]||0))*100)/100});
+      ["km",...FUEL_F].forEach(f=>{if(r[f]!=null)x[f]=Math.round(((+x[f]||0)+(+r[f]||0))*100)/100});
       if(r.startKm!=null&&(x.startKm==null||+r.startKm<+x.startKm))x.startKm=r.startKm;if(r.endKm!=null&&(x.endKm==null||+r.endKm>+x.endKm))x.endKm=r.endKm;
-      if(r.driver)x.driver=r.driver;Object.keys(r).forEach(f=>{if(x[f]==null&&r[f]!=null)x[f]=r[f]})}));return[...by.values()]}
+      if(r.driver&&hasKm(kd))x.driver=r.driver;Object.keys(r).forEach(f=>{if(x[f]==null&&r[f]!=null)x[f]=r[f]})})});return[...by.values()]}
   const plan=()=>{const ok=sheets.filter(s=>s.rows&&s.rows.length&&s.mi>=0);const months=new Map();const dup=new Set();
     ok.forEach(s=>{const m=mo(s);if(!months.has(m))months.set(m,{m,sheets:[]});const g=months.get(m);if(g.sheets.some(x=>x.per.key===s.per.key))dup.add(s.name);g.sheets.push(s)});
     months.forEach(g=>{const ex=S.usage.find(u=>u.month===g.m);let per={...existingPeriods(ex)};const notes=[];
-      const newKeys=g.sheets.map(s=>s.per.key);
-      if(newKeys.includes("full")){if(Object.keys(per).length)notes.push("replaces the earlier upload for the whole month");per={}}
-      else if(per.full){notes.push("replaces the earlier whole-month upload");delete per.full}
-      g.sheets.forEach(s=>{if(per[s.per.key])s.repl=true;per[s.per.key]={name:s.name,file:file.name,rows:s.rows,a:s.per.a,b:s.per.b,at:new Date().toISOString()}});
+      g.sheets.forEach(s=>{const kd=s.kind;const removed=[];
+        Object.entries(per).forEach(([k,p])=>{const pk=kindOf(p);const sameFam=(hasKm(kd)&&hasKm(pk))||(hasFuel(kd)&&hasFuel(pk));if(!sameFam)return;
+          const same=k===s.per.key,over=s.per.a<p.b&&p.a<s.per.b;if(same||over){
+            if(pk==="both"&&kd!=="both"){const keep=kd==="km"?"fuel":"km";per[`${keep}:${k.split(":")[1]}`]={...p,kind:keep}}
+            delete per[k];removed.push(`${pk==="both"?"":pk+" "}${p.a===1&&p.b===31?"whole month":`${p.a}–${p.b}`}`)}});
+        if(removed.length){s.repl=true;s.replNote=removed.join(", ")}
+        per[s.per.key]={name:s.name,file:file.name,rows:s.rows,a:s.per.a,b:s.per.b,kind:kd,at:new Date().toISOString()}});
       g.periods=per;g.rows=mergeRows(per);g.ex=ex;g.notes=notes;
-      const ks=Object.values(per).filter(p=>p.a&&p.b&&!(p.a===1&&p.b===31)).sort((x,y)=>x.a-y.a);g.cover=ks.length?ks.map(p=>`${p.a}–${p.b}`).join(", ")+" "+monLabel(g.m).split(" ")[0]:"whole month"});
+      g.cover=coverText(per,g.m)});
     return{ok,months:[...months.values()],dup}};
   const paint=()=>{
     const P=plan();const {ok,dup}=P;
-    dl.innerHTML=head+`<div class="db"><p style="margin-top:0">Each sheet is linked to cars by plate. The period comes from the <strong>Date</strong> column (e.g. “1-Nov-2026 to 10-Nov-2026”) or from the sheet name. Each period is <strong>added</strong> to its month; uploading the same days again replaces only those days. A sheet without any dates or day range is the whole month.</p>
-     <div class="tw"><table><thead><tr><th>Sheet</th><th>Month</th><th>Days</th><th class="num">Cars</th><th>Not in car list</th><th class="num">Total km</th><th class="num">Fuel (L)</th><th>Status</th></tr></thead><tbody>
-     ${sheets.map((s,i)=>{if(!s.rows||!s.rows.length)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="7" class="sub">Skipped: no “CAR NO.” column or no rows</td></tr>`;
-       if(s.mi<0)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="7" class="sub">Skipped: no month found in the sheet name or the Date column</td></tr>`;
+    dl.innerHTML=head+`<div class="db"><p style="margin-top:0">Each sheet is linked to cars by plate. Upload the <strong>Office car kilo</strong> file (km) and the <strong>Total Fuel</strong> file (fuel) separately; they are combined per car and month. The period comes from the <strong>Date</strong> column (e.g. “1-Nov-2026 to 10-Nov-2026”). New periods are <strong>added</strong>; a period that overlaps an earlier one of the same kind (e.g. fuel 1–30 Nov after fuel 1–20 Nov) <strong>replaces</strong> it.</p>
+     <div class="tw"><table><thead><tr><th>Sheet / period</th><th>Month</th><th>Days</th><th>Holds</th><th class="num">Cars</th><th>Not in car list</th><th class="num">Total km</th><th class="num">Fuel (L)</th><th>Status</th></tr></thead><tbody>
+     ${sheets.map((s,i)=>{if(!s.rows||!s.rows.length)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="8" class="sub">Skipped: no “CAR NO.” column or no rows</td></tr>`;
+       if(s.mi<0)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="8" class="sub">Skipped: no month found in the sheet name or the Date column</td></tr>`;
        const m=mo(s);const nfl=s.rows.filter(r=>!fleet.has(normPlate(r.plate)));const g=P.months.find(x=>x.m===m);
-       const st=dup.has(s.name)?`<span class="pill bad">Same days twice</span>`:s.repl?`<span class="pill warn">Replaces ${esc(perLabel(s.per,m))}</span>`:g.ex?`<span class="pill ok">Adds to ${monLabel(m)}</span>`:`<span class="pill ok">New month</span>`;
-       return`<tr style="cursor:default"><td>${esc(s.name)}</td><td><select data-yr="${i}" aria-label="Month for ${esc(s.name)}">${[t.getFullYear()-2,t.getFullYear()-1,t.getFullYear(),t.getFullYear()+1].map(y=>`<option value="${y}"${y===s.year?" selected":""}>${monLabel(`${y}-${pad(s.mi+1)}`)}</option>`).join("")}</select></td><td>${esc(perLabel(s.per,m))}</td><td class="num">${s.rows.length}</td><td style="white-space:normal">${nfl.length?esc(nfl.map(r=>r.plate).join(", ")):"None"}</td><td class="num">${fmtN(sumKm(s.rows))}</td><td class="num">${fmtN(sumF(s.rows),1)}</td><td>${st}</td></tr>`}).join("")}
+       const st=dup.has(s.name)?`<span class="pill bad">Same days twice</span>`:s.repl?`<span class="pill warn">Replaces ${esc(s.replNote||perLabel(s.per,m))}</span>`:g.ex?`<span class="pill ok">Adds to ${monLabel(m)}</span>`:`<span class="pill ok">New month</span>`;
+       return`<tr style="cursor:default"><td>${esc(s.name)}</td><td><select data-yr="${i}" aria-label="Month for ${esc(s.name)}">${[t.getFullYear()-2,t.getFullYear()-1,t.getFullYear(),t.getFullYear()+1].map(y=>`<option value="${y}"${y===s.year?" selected":""}>${monLabel(`${y}-${pad(s.mi+1)}`)}</option>`).join("")}</select></td><td>${esc(perLabel(s.per,m))}</td><td>${s.kind==="km"?"Km":s.kind==="fuel"?"Fuel":"Km + fuel"}</td><td class="num">${s.rows.length}</td><td style="white-space:normal">${nfl.length?esc(nfl.map(r=>r.plate).join(", ")):"None"}</td><td class="num">${fmtN(sumKm(s.rows))}</td><td class="num">${fmtN(sumF(s.rows),1)}</td><td>${st}</td></tr>`}).join("")}
      </tbody></table></div>
      ${P.months.length?`<h3 class="up-sec">After saving</h3><ul class="att">${P.months.map(g=>`<li style="grid-template-columns:1fr auto"><div class="what"><strong>${monLabel(g.m)}</strong> · covers ${esc(g.cover)}${g.notes.length?` · ${esc(g.notes.join("; "))}`:""}<small>${g.ex?`now ${fmtN(sumKm(g.ex.rows))} km · ${fmtN(sumF(g.ex.rows))} L → `:""}${fmtN(sumKm(g.rows))} km · ${fmtN(sumF(g.rows))} L · ${g.rows.length} cars</small></div></li>`).join("")}</ul>`:""}</div>
      <div class="df"><span class="form-err" id="upErr" role="alert">${dup.size?"Two sheets cover the same days of the same month. Change the month on one of them.":""}</span><button class="btn" data-close>Cancel</button>${ok.length?`<button class="btn primary" id="fuelApply"${dup.size?" disabled":""}>Save</button>`:""}</div>`;
@@ -2667,7 +2675,7 @@ async function exportAll(){
   const carRows=S.cars.map(c=>{const o={};ALLF.forEach(([k,l])=>o[l]=c[k]??"");o.Status=c.status;o["Sold on"]=c.soldDate||"";o["Car age (yrs)"]=carAge(c)??"";o["Licence days left"]=licDays(c)??"";o["Commercial days left"]=commDays(c)??"";return o});
   X.utils.book_append_sheet(wb,X.utils.json_to_sheet(carRows),"Cars");
   if(S.drivers.length)X.utils.book_append_sheet(wb,X.utils.json_to_sheet(S.drivers.map(d=>({Name:d.name,ID:d.id,Car:d.car||"",Owner:d.owner||"",Supervisor:d.supervisor||"",Phone:d.phone||"",Type:d.type||"",Grade:d.grade||"","Join date":d.join||"","Licence no":d.dlNo||"","Licence expiry":d.dlExp||(d.dlYear?String(d.dlYear):""),"Licence days left":d.dlExp?daysUntil(d.dlExp):"",Contract:d.contract||"","Blood type":d.blood||""}))),"Drivers");
-  const fr=[];S.usage.forEach(u=>(u.rows||[]).forEach(r=>fr.push({Month:u.month,Plate:r.plate,Driver:r.driver||"",Owner:r.owner||"","Start km":r.startKm??"","End km":r.endKm??"",Km:r.km??"",Denko:r.fuelDenko??"",Terminal:r.fuelTerminal??"",Office:r.fuelOffice??"","Total fuel":r.fuelTotal??""})));
+  const fr=[];S.usage.forEach(u=>(u.rows||[]).forEach(r=>fr.push({Month:u.month,Plate:r.plate,Driver:r.driver||"",Owner:r.owner||"","Start km":r.startKm??"","End km":r.endKm??"",Km:r.km??"",Denko:r.fuelDenko??"",Terminal:r.fuelTerminal??"",Office:r.fuelOffice??"","Max Energy":r.fuelMax??"","Total fuel":r.fuelTotal??""})));
   if(fr.length)X.utils.book_append_sheet(wb,X.utils.json_to_sheet(fr),"Fuel & km");
   const mr=maintRows().map(r=>({Month:r.m,Date:r.date||"",Plate:r.plate,Invoice:r.inv??"",Description:r.desc||"",Category:r.cat||"","Repair type":r.bc||"",Supplier:r.sup||"",Qty:r.qty??"",Amount:r.amt??""}));
   if(mr.length)X.utils.book_append_sheet(wb,X.utils.json_to_sheet(mr),"Maintenance");
@@ -3042,11 +3050,11 @@ function carExtra(exact,k,c){
      ${kpi(fmtN(km),"Total km","","",`${monLabel(rows[0].m)} – ${monLabel(rows[rows.length-1].m)}`)}${kpi(fmtN(km/rows.length),"Km per month","","")}${kpi(fmtN(fuel),"Fuel (L)","","")}
      ${kpi(kmpl!=null?fmtN(kmpl,1):"—","Km per litre",peer&&kmpl<peer*0.8?"t-bad":"","",`${peer?`model ${fmtN(peer,1)}`:""}${rated?` · rated ${rated}`:""}`)}
      ${kpi(exp!=null?`${exp-fuel>0?"+":""}${fmtN(exp-fuel)}`:"—","Fuel balance (L) vs rated",exp!=null&&fuel>exp*1.2?"t-bad":"","")}
-     ${kpi(fuel?fmtN(off/fuel*100)+"%":"—","Office fuel share",fuel&&off/fuel>=0.4?"t-warn":"","",`Denko ${fmtN(den)} · Terminal ${fmtN(ter)} · Office ${fmtN(off)} L`)}
+     ${kpi(fuel?fmtN(off/fuel*100)+"%":"—","Office fuel share",fuel&&off/fuel>=0.4?"t-warn":"","",`Denko ${fmtN(den)} · Terminal ${fmtN(ter)} · Office ${fmtN(off)}${sum("fuelMax")?` · Max Energy ${fmtN(sum("fuelMax"))}`:""} L`)}
     </div>
-    <div class="tw"><table><thead><tr><th>Month</th><th>Driver</th><th class="num">Start km</th><th class="num">End km</th><th>Km</th><th class="num">Denko</th><th class="num">Terminal</th><th class="num">Office</th><th class="num">Fuel (L)</th><th class="num">Km/L</th></tr></thead><tbody>
-     ${rows.slice().reverse().map(r=>`<tr style="cursor:default"><td>${monLabel(r.m)}</td><td>${esc(r.driver||"—")}</td><td class="num">${fmtN(r.startKm)}</td><td class="num">${fmtN(r.endKm)}</td><td><span class="kmbar"><span style="width:${(+r.km||0)/mx*100}%"></span></span> <strong>${fmtN(r.km)}</strong></td><td class="num">${fmtN(r.fuelDenko||0)}</td><td class="num">${fmtN(r.fuelTerminal||0)}</td><td class="num">${fmtN(r.fuelOffice||0)}</td><td class="num">${fmtN(r.fuelTotal,1)}</td><td class="num">${+r.fuelTotal>0?`<span class="${peer&&r.km/r.fuelTotal<peer*0.8?"dev low":""}">${fmtN(r.km/r.fuelTotal,1)}</span>`:"—"}</td></tr>`).join("")}
-    </tbody><tfoot><tr><th>Total</th><th></th><th></th><th></th><th>${fmtN(km)}</th><th class="num">${fmtN(den)}</th><th class="num">${fmtN(ter)}</th><th class="num">${fmtN(off)}</th><th class="num">${fmtN(fuel,1)}</th><th class="num">${kmpl!=null?fmtN(kmpl,1):"—"}</th></tr></tfoot></table></div>`:`<p class="sub">No fuel &amp; km records for this car yet.</p>`}
+    <div class="tw"><table><thead><tr><th>Month</th><th>Driver</th><th class="num">Start km</th><th class="num">End km</th><th>Km</th><th class="num">Denko</th><th class="num">Terminal</th><th class="num">Office</th>${rows.some(r=>r.fuelMax)?`<th class="num">Max Energy</th>`:""}<th class="num">Fuel (L)</th><th class="num">Km/L</th></tr></thead><tbody>
+     ${rows.slice().reverse().map(r=>`<tr style="cursor:default"><td>${monLabel(r.m)}</td><td>${esc(r.driver||"—")}</td><td class="num">${fmtN(r.startKm)}</td><td class="num">${fmtN(r.endKm)}</td><td><span class="kmbar"><span style="width:${(+r.km||0)/mx*100}%"></span></span> <strong>${fmtN(r.km)}</strong></td><td class="num">${fmtN(r.fuelDenko||0)}</td><td class="num">${fmtN(r.fuelTerminal||0)}</td><td class="num">${fmtN(r.fuelOffice||0)}</td>${rows.some(x=>x.fuelMax)?`<td class="num">${fmtN(r.fuelMax||0)}</td>`:""}<td class="num">${fmtN(r.fuelTotal,1)}</td><td class="num">${+r.fuelTotal>0?`<span class="${peer&&r.km/r.fuelTotal<peer*0.8?"dev low":""}">${fmtN(r.km/r.fuelTotal,1)}</span>`:"—"}</td></tr>`).join("")}
+    </tbody><tfoot><tr><th>Total</th><th></th><th></th><th></th><th>${fmtN(km)}</th><th class="num">${fmtN(den)}</th><th class="num">${fmtN(ter)}</th><th class="num">${fmtN(off)}</th>${rows.some(x=>x.fuelMax)?`<th class="num">${fmtN(sum("fuelMax"))}</th>`:""}<th class="num">${fmtN(fuel,1)}</th><th class="num">${kmpl!=null?fmtN(kmpl,1):"—"}</th></tr></tfoot></table></div>`:`<p class="sub">No fuel &amp; km records for this car yet.</p>`}
   </section>
   ${(()=>{const A=accFor(exact);return A.length?`<section class="panel"><h2>Accident records <span class="pill bad">${A.length}</span></h2>${accTable(A,false)}</section>`:""})()}
   ${IS.length?`<section class="panel"><h2>Daily issues <span class="pill ${IS.some(i=>i.status!=="Done")?"warn":"none"}">${IS.length}</span></h2><div class="tw"><table><thead><tr><th>Date</th><th>Status</th><th>Priority</th><th>Issue</th><th>Detail</th><th>Assigned</th></tr></thead><tbody>${IS.slice(0,15).map(i=>`<tr style="cursor:default" class="${i.status!=="Done"&&i.priority==="P-1"?"flag-low":""}"><td>${fmtD(i.date)}</td><td><span class="pill ${i.status==="Done"?"ok":"warn"}">${esc(i.status)}</span></td><td>${esc(i.priority||"—")}</td><td>${esc(i.category||"")}</td><td style="white-space:normal;min-width:240px">${esc(i.detail||"")}</td><td>${esc(i.assigned||"—")}</td></tr>`).join("")}</tbody></table></div></section>`:""}
@@ -3494,12 +3502,12 @@ async function genReport(){
     {title:`Drivers in / out — ${label}`,header:["Owner","Joined (in)","Left (out)"],rows:[...ioOwn.map(x=>[x.k,x.i,x.o]),["TOTAL",joined.length,left.length]]},
     {header:["In / out","Driver","ID","Owner","Car","Date"],rows:[...joined.map(d=>["In",d.name,d.id||"",d.owner||"",d.car||"",d.join]),...left.map(d=>["Out",d.name,d.id||"",d.owner||"",d.car||"",d.resign])]}]);
   // ---------- Driving & fuel
-  const fg=(kf)=>group(Up,kf,k=>({k,cars:new Set(),km:0,den:0,ter:0,off:0,tot:0}),(x,r)=>{x.cars.add(npk(r.plate));x.km+=+r.km||0;x.den+=+r.fuelDenko||0;x.ter+=+r.fuelTerminal||0;x.off+=+r.fuelOffice||0;x.tot+=+r.fuelTotal||0}).sort((a,b)=>b.tot-a.tot);
-  const fRow=x=>[x.k,x.cars.size,x.km,r1(x.den),r1(x.ter),r1(x.off),r1(x.tot),pct(x.off,x.tot),x.tot?r1(x.km/x.tot):""];const fH=["","Cars","Km","Denko (L)","Terminal (L)","Office (L)","Total fuel (L)","Office %","Km per litre"];
+  const fg=(kf)=>group(Up,kf,k=>({k,cars:new Set(),km:0,den:0,ter:0,off:0,mx:0,tot:0}),(x,r)=>{x.cars.add(npk(r.plate));x.km+=+r.km||0;x.den+=+r.fuelDenko||0;x.ter+=+r.fuelTerminal||0;x.off+=+r.fuelOffice||0;x.mx+=+r.fuelMax||0;x.tot+=+r.fuelTotal||0}).sort((a,b)=>b.tot-a.tot);
+  const fRow=x=>[x.k,x.cars.size,x.km,r1(x.den),r1(x.ter),r1(x.off),r1(x.mx),r1(x.tot),pct(x.off,x.tot),x.tot?r1(x.km/x.tot):""];const fH=["","Cars","Km","Denko (L)","Terminal (L)","Office (L)","Max Energy (L)","Total fuel (L)","Office %","Km per litre"];
   const byOwnF=fg(r=>r.own),byRegF=fg(r=>r.reg),byDrvF=fg(r=>r.driver),byCarF=fg(r=>r.plate);
-  const den=sum(Up,r=>r.fuelDenko),ter=sum(Up,r=>r.fuelTerminal),off=sum(Up,r=>r.fuelOffice);
-  mk("Driving & fuel",[{title:`Fuel by station — ${label}`,note:Up.length?`Fuel & km months included: ${[...new Set(Up.map(r=>r.m))].sort().map(monLabel).join(", ")}`:"No fuel & km uploaded for this period.",header:["Station","Litres","% of total"],rows:[["Denko",r1(den),pct(den,fp)],["Terminal",r1(ter),pct(ter,fp)],["Office",r1(off),pct(off,fp)],["TOTAL",r1(fp),100]]},
-    {title:"By owner",header:["Owner",...fH.slice(1)],rows:[...byOwnF.map(fRow),["TOTAL",new Set(Up.map(r=>npk(r.plate))).size,kmp,r1(den),r1(ter),r1(off),r1(fp),pct(off,fp),fp?r1(kmp/fp):""]]},
+  const den=sum(Up,r=>r.fuelDenko),ter=sum(Up,r=>r.fuelTerminal),off=sum(Up,r=>r.fuelOffice),mxe=sum(Up,r=>r.fuelMax);
+  mk("Driving & fuel",[{title:`Fuel by station — ${label}`,note:Up.length?`Fuel & km months included: ${[...new Set(Up.map(r=>r.m))].sort().map(monLabel).join(", ")}`:"No fuel & km uploaded for this period.",header:["Station","Litres","% of total"],rows:[["Denko",r1(den),pct(den,fp)],["Terminal",r1(ter),pct(ter,fp)],["Office",r1(off),pct(off,fp)],["Max Energy",r1(mxe),pct(mxe,fp)],["TOTAL",r1(fp),100]]},
+    {title:"By owner",header:["Owner",...fH.slice(1)],rows:[...byOwnF.map(fRow),["TOTAL",new Set(Up.map(r=>npk(r.plate))).size,kmp,r1(den),r1(ter),r1(off),r1(mxe),r1(fp),pct(off,fp),fp?r1(kmp/fp):""]]},
     {title:"By region",header:["Region",...fH.slice(1)],rows:byRegF.map(fRow)},
     {title:"By driver",header:["Driver",...fH.slice(1)],rows:byDrvF.map(fRow)},
     {title:"By car",header:["Car","Owner","Car model","Km","Total fuel (L)","Office (L)","Office %","Km per litre","Rated km/L"],rows:byCarF.map(x=>{const c=carBy.get(npk(x.k));return[x.k,ownerOf(x.k),c?`${c.brand||""} ${c.model||""}`.trim():"",x.km,r1(x.tot),r1(x.off),pct(x.off,x.tot),x.tot?r1(x.km/x.tot):"",c&&c.kmpl?+c.kmpl:""]})}]);
@@ -3533,6 +3541,8 @@ async function genReport(){
   say(`Downloaded ${name}`);toast("Report downloaded");
   }catch(e){console.error(e);say("Couldn’t build the report: "+(e&&e.message||e))}
 }
+function usageCover(){const L=(S.usage||[]).filter(u=>u.cover).sort((a,b)=>b.month.localeCompare(a.month)).slice(0,3);if(!L.length)return"";
+  return`<p class="sub" style="margin:0 0 10px">Records cover: ${L.map(u=>`<strong>${monLabel(u.month)}</strong> ${esc(u.cover)}`).join(" · ")}. Km per litre is most accurate when km and fuel cover the same days.</p>`}
 /* ---------- Render ---------- */
 function render(){
   document.querySelectorAll("nav.tabs a").forEach(a=>{const v=a.getAttribute("href").slice(1);a.hidden=a.hasAttribute("data-l2nav")?!(S.perm&&S.perm.level==="2"):!canSee(v)});
@@ -3552,7 +3562,7 @@ function render(){
   if(!S.loaded){m.innerHTML=`<div class="empty">Loading fleet…</div>`;return}
   if(!S.cars.length){m.innerHTML=`<div class="empty"><h2>No cars yet</h2><p>Add your first car to start tracking car, licence and commercial life.</p>${S.canWrite?`<p><button class="btn primary" data-act="upload">Upload Excel</button> <button class="btn" data-act="add">Add new car</button></p>`:""}</div>`;return}
   const focusId=document.activeElement&&document.activeElement.id;const caret=["q","uq","mq","dq"].includes(focusId)?document.activeElement.selectionStart:null;
-  m.innerHTML=updBanner()+({overview:vDash,acc:vAcc,cars:vCars,usage:vUsage,maint:()=>maintSrcNote()+vMaintNew(),drivers:vDrivers,updates:vSettings,access:vAccess,groups:vGroups,renewals:vRenewals,history:vHistory}[S.view]||vOverview)();
+  m.innerHTML=updBanner()+({overview:vDash,acc:vAcc,cars:vCars,usage:()=>usageCover()+vUsage(),maint:()=>maintSrcNote()+vMaintNew(),drivers:vDrivers,updates:vSettings,access:vAccess,groups:vGroups,renewals:vRenewals,history:vHistory}[S.view]||vOverview)();
   if(["q","uq","mq","dq"].includes(focusId)){const q=document.getElementById(focusId);if(q){q.focus();if(caret!=null)q.setSelectionRange(caret,caret)}}
 }
 
