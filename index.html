@@ -2103,7 +2103,7 @@ function usageHistory(c){
   const tk=rs.reduce((s,r)=>s+(+r.km||0),0),tf=rs.reduce((s,r)=>s+(+r.fuelTotal||0),0);
   return `<h3 class="sec">Driving &amp; fuel</h3>${rs.length?`<div class="tw" style="margin-bottom:18px"><table><thead><tr><th>Month</th><th>Driver</th><th class="num">Start km</th><th class="num">End km</th><th class="num">Km driven</th><th class="num">Denko (L)</th><th class="num">Terminal (L)</th><th class="num">Office (L)</th><th class="num">Fuel (L)</th><th class="num">Km/L</th></tr></thead><tbody>${rs.map(r=>`<tr style="cursor:default"><td>${monLabel(r.m)}</td><td>${esc(r.driver||"—")}</td><td class="num">${fmtN(r.startKm)}</td><td class="num">${fmtN(r.endKm)}</td><td class="num"><strong>${fmtN(r.km)}</strong></td><td class="num">${fmtN(r.fuelDenko||0)}</td><td class="num">${fmtN(r.fuelTerminal||0)}</td><td class="num">${fmtN(r.fuelOffice||0)}</td><td class="num">${fmtN(r.fuelTotal,1)}</td><td class="num">${+r.fuelTotal>0?fmtN(r.km/r.fuelTotal,1):"—"}</td></tr>`).join("")}</tbody><tfoot><tr><th>Total</th><th></th><th></th><th></th><th class="num">${fmtN(tk)}</th><th class="num">${fmtN(rs.reduce((s,r)=>s+(+r.fuelDenko||0),0))}</th><th class="num">${fmtN(rs.reduce((s,r)=>s+(+r.fuelTerminal||0),0))}</th><th class="num">${fmtN(rs.reduce((s,r)=>s+(+r.fuelOffice||0),0))}</th><th class="num">${fmtN(tf,1)}</th><th class="num">${tf?fmtN(tk/tf,1):"—"}</th></tr></tfoot></table></div>`:`<p class="sub" style="margin:0 0 18px">No driving records for this car.</p>`}`;
 }
-const UMAP={"driver name":"driver","car no.":"plate","car no":"plate","vehicle plate":"plate","brand":"brand","model name":"model","region":"region","owner":"owner","engine power":"engine","ou-1":"ou","ferry status":"ferry","start kilo":"startKm","end kilo":"endKm","total kilo":"km","denko fuel station":"fuelDenko","terminal fuel station":"fuelTerminal","office fuel":"fuelOffice","total fuel liters":"fuelTotal","total fuel litres":"fuelTotal"};
+const UMAP={"date":"period","period":"period","date range":"period","driver name":"driver","car no.":"plate","car no":"plate","vehicle plate":"plate","brand":"brand","model name":"model","region":"region","owner":"owner","engine power":"engine","ou-1":"ou","ferry status":"ferry","start kilo":"startKm","end kilo":"endKm","total kilo":"km","denko fuel station":"fuelDenko","terminal fuel station":"fuelTerminal","office fuel":"fuelOffice","total fuel liters":"fuelTotal","total fuel litres":"fuelTotal"};
 const UNUM=new Set(["startKm","endKm","km","fuelDenko","fuelTerminal","fuelOffice","fuelTotal"]);
 const hNorm=h=>String(h??"").trim().toLowerCase().replace(/\s+/g," ");
 function readFuelSheet(X,ws){
@@ -2112,6 +2112,7 @@ function readFuelSheet(X,ws){
   if(hi<0)return null;
   const cols=rows[hi].map(h=>UMAP[hNorm(h)]||null);const out=[];
   rows.slice(hi+1).forEach(r=>{const d={};cols.forEach((k,i)=>{if(!k)return;let v=r[i];if(v==null)return;if(typeof v==="string"){v=v.trim();if(!v||/^#/.test(v))return}
+    if(k==="period"&&typeof v==="number"){const p=X.SSF.parse_date_code(v);if(p)v=`${p.d}-${MONTHS[p.m-1]}-${p.y}`}
     if(UNUM.has(k)){const n=typeof v==="number"?v:Number(String(v).replace(/,/g,""));if(isNaN(n))return;v=Math.round(n*100)/100}else v=String(v);d[k]=v});
     if(!d.plate||/total/i.test(d.plate))return;
     if(d.km==null&&d.startKm!=null&&d.endKm!=null)d.km=d.endKm-d.startKm;
@@ -2125,14 +2126,24 @@ async function onFuelUpload(file){const __b=fleetSnap();
   dl.innerHTML=head+`<div class="db"><p>Reading the file…</p></div>`;if(!dl.open)dl.showModal();
   const t=today();const sheets=[];
   try{const X=await loadXLSX();const wb=X.read(await file.arrayBuffer(),{type:"array"});
-    wb.SheetNames.forEach(n=>{const rows=readFuelSheet(X,wb.Sheets[n]);const s=n.toLowerCase();const mi=MONTHS.findIndex(m=>new RegExp("(^|[^a-z])"+m).test(s));const ym=/(20\d\d)/.exec(s);
+    const lastDay=(y,m)=>new Date(y,m+1,0).getDate();
+    const parsePeriod=v=>{const txt=String(v||"").trim();if(!txt)return null;const parts=txt.split(/\s+(?:to|until|till|~|–|—)\s+|\s+-\s+/i).map(x=>x.trim()).filter(Boolean);
+      const d1=pickDate(dateCands(X,parts[0]),null);if(!d1)return null;const d2=parts[1]?pickDate(dateCands(X,parts[1]),null):d1;
+      const y=+d1.slice(0,4),mi=+d1.slice(5,7)-1,a=+d1.slice(8,10);const b=d2&&d2.slice(0,7)===d1.slice(0,7)?+d2.slice(8,10):lastDay(y,mi);return{y,mi,a,b:Math.max(a,b)}};
+    wb.SheetNames.forEach(n=>{const rows=readFuelSheet(X,wb.Sheets[n]);
+      if(rows&&rows.length&&rows.some(r=>r.period)){ // one sheet, several periods in the Date column (e.g. 10-day records)
+        const g=new Map();rows.forEach(r=>{const k=r.period||"";if(!g.has(k))g.set(k,[]);g.get(k).push(r)});
+        g.forEach((rs,ptxt)=>{const pp=parsePeriod(ptxt);const clean=rs.map(r=>{const x={...r};delete x.period;return x});
+          if(!pp){sheets.push({name:`${ptxt||"no date"} (${n})`,rows:clean,mi:-1,year:t.getFullYear()});return}
+          sheets.push({name:`${ptxt}`,sheetName:n,rows:clean,mi:pp.mi,year:pp.y,per:{key:`${pad(pp.a)}-${pad(pp.b)}`,a:pp.a,b:pp.b}})});return}
+      const s=n.toLowerCase();const mi=MONTHS.findIndex(m=>new RegExp("(^|[^a-z])"+m).test(s));const ym=/(20\d\d)/.exec(s);
       sheets.push({name:n,rows,mi,year:ym?+ym[1]:(mi>t.getMonth()?t.getFullYear()-1:t.getFullYear())})});
   }catch(ex){dl.querySelector(".db").innerHTML=`<div class="notice bad">${ex.message==="load"?"The Excel reader didn’t load. Check your connection and try again.":"This file couldn’t be read. Save it as .xlsx and try again."}</div>`;return}
   const fleet=new Set(S.cars.map(c=>normPlate(c.plate)));
   const MON_RE="(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*";
   const periodOf=n=>{const s=n.toLowerCase();let m=new RegExp("(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*(?:"+MON_RE+")?\\s*(?:to|-|–|~|until)\\s*(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s*(?:"+MON_RE+")?").exec(s);
     if(m){const a=+m[1],b=+m[3];if(a>=1&&a<=31&&b>=1&&b<=31&&a<=b)return{key:`${pad(a)}-${pad(b)}`,a,b}}return{key:"full",a:1,b:31}};
-  sheets.forEach(s=>{s.per=periodOf(s.name)});
+  sheets.forEach(s=>{s.per=s.per||periodOf(s.name)});
   const mo=s=>`${s.year}-${pad(s.mi+1)}`;
   const perLabel=(p,m)=>p.key==="full"?"whole month":`${p.a}–${p.b} ${monLabel(m).split(" ")[0]}`;
   const sumKm=rs=>(rs||[]).reduce((a,r)=>a+(+r.km||0),0),sumF=rs=>(rs||[]).reduce((a,r)=>a+(+r.fuelTotal||0),0);
@@ -2154,10 +2165,10 @@ async function onFuelUpload(file){const __b=fleetSnap();
     return{ok,months:[...months.values()],dup}};
   const paint=()=>{
     const P=plan();const {ok,dup}=P;
-    dl.innerHTML=head+`<div class="db"><p style="margin-top:0">Each sheet is linked to cars by plate. A sheet whose name has a day range (like “1 Nov to 10 Nov”) is <strong>added</strong> to that month; uploading the same days again replaces only those days. A sheet without a day range is the whole month.</p>
+    dl.innerHTML=head+`<div class="db"><p style="margin-top:0">Each sheet is linked to cars by plate. The period comes from the <strong>Date</strong> column (e.g. “1-Nov-2026 to 10-Nov-2026”) or from the sheet name. Each period is <strong>added</strong> to its month; uploading the same days again replaces only those days. A sheet without any dates or day range is the whole month.</p>
      <div class="tw"><table><thead><tr><th>Sheet</th><th>Month</th><th>Days</th><th class="num">Cars</th><th>Not in car list</th><th class="num">Total km</th><th class="num">Fuel (L)</th><th>Status</th></tr></thead><tbody>
      ${sheets.map((s,i)=>{if(!s.rows||!s.rows.length)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="7" class="sub">Skipped: no “CAR NO.” column or no rows</td></tr>`;
-       if(s.mi<0)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="7" class="sub">Skipped: the sheet name doesn’t say which month</td></tr>`;
+       if(s.mi<0)return`<tr style="cursor:default"><td>${esc(s.name)}</td><td colspan="7" class="sub">Skipped: no month found in the sheet name or the Date column</td></tr>`;
        const m=mo(s);const nfl=s.rows.filter(r=>!fleet.has(normPlate(r.plate)));const g=P.months.find(x=>x.m===m);
        const st=dup.has(s.name)?`<span class="pill bad">Same days twice</span>`:s.repl?`<span class="pill warn">Replaces ${esc(perLabel(s.per,m))}</span>`:g.ex?`<span class="pill ok">Adds to ${monLabel(m)}</span>`:`<span class="pill ok">New month</span>`;
        return`<tr style="cursor:default"><td>${esc(s.name)}</td><td><select data-yr="${i}" aria-label="Month for ${esc(s.name)}">${[t.getFullYear()-2,t.getFullYear()-1,t.getFullYear(),t.getFullYear()+1].map(y=>`<option value="${y}"${y===s.year?" selected":""}>${monLabel(`${y}-${pad(s.mi+1)}`)}</option>`).join("")}</select></td><td>${esc(perLabel(s.per,m))}</td><td class="num">${s.rows.length}</td><td style="white-space:normal">${nfl.length?esc(nfl.map(r=>r.plate).join(", ")):"None"}</td><td class="num">${fmtN(sumKm(s.rows))}</td><td class="num">${fmtN(sumF(s.rows),1)}</td><td>${st}</td></tr>`}).join("")}
