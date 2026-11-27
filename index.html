@@ -3551,7 +3551,7 @@ async function genReport(){
 function usageCover(){const L=(S.usage||[]).filter(u=>u.cover).sort((a,b)=>b.month.localeCompare(a.month)).slice(0,3);if(!L.length)return"";
   return`<p class="sub" style="margin:0 0 10px">Records cover: ${L.map(u=>`<strong>${monLabel(u.month)}</strong> ${esc(u.cover)}`).join(" · ")}. Km per litre is most accurate when km and fuel cover the same days.</p>`}
 /* ---------- GPS Daily ---------- */
-const GPS_KEEP_DAYS=60,GPS_MIN_KM=1,GPS_SPEED=80;
+const GPS_KEEP_DAYS=60,GPS_MIN_KM=1,GPS_SPEED=80,GPS_LOW=40;
 const devPlate=d=>{const s=String(d||"").trim();const m=/^([0-9]?[A-Za-z]{1,2})\s*[-\/ ]\s*(\d{3,4})/.exec(s);return m?`${m[1].toUpperCase()}/${m[2]}`:s};
 const hms=t=>{const m=/^(\d+):(\d{2}):(\d{2})$/.exec(String(t||"").trim());return m?(+m[1])*60+(+m[2])+(+m[3])/60:0};
 const fmtMin=m=>{m=Math.round(m||0);return`${Math.floor(m/60)}h ${pad(m%60)}m`};
@@ -3569,11 +3569,11 @@ function parseGpsWb(X,wb){
   const cars=[];
   for(let i=hi+1;i<R.length;i++){const r=R[i];if(!r)continue;const no=String(r[iNo]??"").trim();if(!/^\d+$/.test(no))break;
     const dev=String(r[iDev]||"").trim();if(!dev)continue;
-    const x={no:+no,device:dev,imei:String(r[iImei]||"").trim(),km:+String(r[iKm]||0).replace(/,/g,"")||0,durMin:hms(r[iDur]),avg:+r[iAvg]||0,max:+r[iMax]||0,trips:0,first:"",last:"",night:0,area:""};
+    const x={no:+no,device:dev,imei:String(r[iImei]||"").trim(),km:+String(r[iKm]||0).replace(/,/g,"")||0,durMin:hms(r[iDur]),avg:+r[iAvg]||0,max:+r[iMax]||0,trips:0,first:"",last:"",night:0,area:"",over:0};
     const sn=wb.SheetNames.find(n=>n.startsWith(`${no}.`));
     if(sn){const T=X.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:false,defval:null,blankrows:false});const areas=new Map();
       T.forEach(t=>{if(!t)return;const st=String(t[0]||""),en=String(t[2]||"");if(!/^\d{2}:\d{2}:\d{2}$/.test(st))return;x.trips++;
-        if(!x.first||st<x.first)x.first=st;if(/^\d{2}:\d{2}:\d{2}$/.test(en)&&(!x.last||en>x.last))x.last=en;if(st>="22:00"||st<"05:00")x.night++;
+        if(!x.first||st<x.first)x.first=st;if(/^\d{2}:\d{2}:\d{2}$/.test(en)&&(!x.last||en>x.last))x.last=en;if(st>="22:00"||st<"05:00")x.night++;if((+String(t[7]||0).replace(/,/g,""))>GPS_SPEED)x.over++;
         const loc=String(t[1]||"").split(",").map(s=>s.trim()).filter(s=>s&&!/^myanmar$/i.test(s)&&!/^\d+$/.test(s));const a=loc[loc.length-1];if(a)areas.set(a,(areas.get(a)||0)+1)});
       x.area=[...areas.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0])[0]||""}
     cars.push(x)}
@@ -3598,7 +3598,7 @@ async function onGpsUpload(file){
     $("#gpsUpDate").addEventListener("change",e=>{date=e.target.value||date;paint()});
     $("#gpsSave").addEventListener("click",async()=>{const b=$("#gpsSave");b.disabled=true;const err=$("#upErr");
       try{let by="";try{by=S.user?(await S.user.id())||"":""}catch(_){}
-        const cars=rows.map(r=>({device:r.device,imei:r.imei,plate:r.c?r.c.plate:devPlate(r.device),carId:r.c?r.c._id:null,km:Math.round(r.km*100)/100,durMin:Math.round(r.durMin),avg:r.avg,max:r.max,trips:r.trips,first:r.first,last:r.last,night:r.night,area:r.area}));
+        const cars=rows.map(r=>({device:r.device,imei:r.imei,plate:r.c?r.c.plate:devPlate(r.device),carId:r.c?r.c._id:null,km:Math.round(r.km*100)/100,durMin:Math.round(r.durMin),avg:r.avg,max:r.max,trips:r.trips,first:r.first,last:r.last,night:r.night,area:r.area,over:r.over||0}));
         await S.db.collection("gps").doc(date).set({date,file:file.name,uploadedAt:new Date().toISOString(),by,fleetSize:gpsFleet().length,cars});
         if(S.perm&&S.perm.del){const cut=isoD(new Date(Date.now()-GPS_KEEP_DAYS*DAY));for(const g of (S.gps||[]).filter(g=>g.date<cut)){try{await S.db.collection("gps").doc(g._id).delete()}catch(_){}}}
         await logIt("Edited","GPS",`Uploaded GPS ${date}: ${cars.length} cars, ${fmtN(cars.reduce((a,r)=>a+r.km,0))} km`);
@@ -3616,13 +3616,13 @@ function vGps(){
   const rows=D.cars.map(r=>({...r,c:carOf(r)})).filter(r=>(!fo&&!fl)||inF(r.c));
   const actIds=new Set(rows.filter(r=>r.c&&r.km>=GPS_MIN_KM).map(r=>r.c._id));
   const F=fleet.filter(c=>(!fo&&!fl)||inF(c));const stopped=F.filter(c=>!actIds.has(c._id)).map(c=>{const r=rows.find(x=>x.c&&x.c._id===c._id);return{c,km:r?r.km:0,inFile:!!r}});
-  const act=rows.filter(r=>r.km>=GPS_MIN_KM);const km=act.reduce((a,r)=>a+r.km,0);const spd=rows.filter(r=>r.max>GPS_SPEED).sort((a,b)=>b.max-a.max);const night=rows.filter(r=>r.night>0);
+  const act=rows.filter(r=>r.km>=GPS_MIN_KM);const low=act.filter(r=>r.c&&r.km<GPS_LOW).sort((a,b)=>a.km-b.km);const km=act.reduce((a,r)=>a+r.km,0);const spd=rows.filter(r=>r.max>GPS_SPEED).sort((a,b)=>b.max-a.max);const night=rows.filter(r=>r.night>0);
   const unk=rows.filter(r=>!r.c);
   const grp=(f)=>{const m=new Map();F.forEach(c=>{const k=f(c)||"Not set";const x=m.get(k)||{k,gps:0,act:0,stop:0,km:0};x.gps++;if(actIds.has(c._id))x.act++;else x.stop++;m.set(k,x)});act.forEach(r=>{if(!r.c)return;const k=f(r.c)||"Not set";const x=m.get(k);if(x)x.km+=r.km});return[...m.values()].sort((a,b)=>b.km-a.km||b.gps-a.gps)};
   const gTable=(title,list)=>`<section class="panel"><h2>${title}</h2><div class="tw"><table><thead><tr><th></th><th class="num">GPS cars</th><th class="num">Active</th><th class="num">Stopped</th><th class="num">Km</th><th class="num">Km / active car</th></tr></thead><tbody>${list.map(x=>`<tr style="cursor:default"><td><strong>${esc(x.k)}</strong></td><td class="num">${x.gps}</td><td class="num">${x.act}</td><td class="num">${x.stop?`<span class="pill warn">${x.stop}</span>`:"0"}</td><td class="num">${fmtN(x.km)}</td><td class="num">${x.act?fmtN(x.km/x.act):"—"}</td></tr>`).join("")}</tbody></table></div></section>`;
   const pB=(p,c)=>c?`<button class="chipbtn" data-car="${esc(c._id)}"><span class="plate">${esc(c.plate)}</span></button>`:`<span class="plate">${esc(p)}</span>`;
   // trend
-  const T=G.map(g=>{const ids=new Set();let k=0;g.cars.forEach(r=>{const c=carOf(r);if((fo||fl)&&!inF(c))return;if(r.km>=GPS_MIN_KM){k+=r.km;if(c)ids.add(c._id)}});const n=(g.fleetSize&&!fo&&!fl)?g.fleetSize:F.length;return{d:g.date,km:k,act:ids.size,stop:Math.max(0,n-ids.size)}});
+  const T=G.map(g=>{const ids=new Set();let k=0,lo=0,fa=0;g.cars.forEach(r=>{const c=carOf(r);if((fo||fl)&&!inF(c))return;if(r.km>=GPS_MIN_KM){k+=r.km;if(c)ids.add(c._id);if(r.km<GPS_LOW)lo++}if(r.max>GPS_SPEED)fa++});const n=(g.fleetSize&&!fo&&!fl)?g.fleetSize:F.length;return{d:g.date,km:k,act:ids.size,stop:Math.max(0,n-ids.size),lo,fa}});
   const tmx=Math.max(1,...T.map(t=>t.km)),nmx=Math.max(1,...T.map(t=>t.act+t.stop));
   const last7=G.slice(-7);const per=new Map();last7.forEach(g=>g.cars.forEach(r=>{const c=carOf(r);if((fo||fl)&&!inF(c))return;const k=c?c._id:r.plate;const x=per.get(k)||{c,p:r.plate,km:0,days:0};x.km+=r.km;if(r.km>=GPS_MIN_KM)x.days++;per.set(k,x)}));
   const top7=[...per.values()].sort((a,b)=>b.km-a.km).slice(0,10);
@@ -3636,15 +3636,16 @@ function vGps(){
    ${kpi(actIds.size,`Active · ${fmtD(cur)}`,"t-ok",`data-jump="gps-list"`,`drove ${GPS_MIN_KM}+ km`)}
    ${kpi(stopped.length,"Stopped",stopped.length?"t-warn":"t-ok",`data-jump="gps-stop"`,`${stopped.filter(s=>!s.inFile).length} no GPS record`)}
    ${kpi(fmtN(km),"Total km","",`data-jump="gps-list"`,actIds.size?`${fmtN(km/actIds.size)} km per active car`:"")}
-   ${kpi(spd.length,`Over ${GPS_SPEED} km/h`,spd.length?"t-bad":"t-ok",`data-jump="gps-speed"`,spd[0]?`top ${spd[0].max} km/h · ${esc(spd[0].c?spd[0].c.plate:spd[0].plate)}`:"")}
-   ${kpi(night.length,"Night driving","",`data-jump="gps-speed"`,"trips 22:00–05:00")}
+   ${kpi(spd.length,`Over ${GPS_SPEED} km/h`,spd.length?"t-bad":"t-ok",`data-jump="gps-fast"`,spd[0]?`top ${spd[0].max} km/h · ${esc(spd[0].c?spd[0].c.plate:spd[0].plate)}`:"")}
+   ${kpi(low.length,`Under ${GPS_LOW} km`,low.length?"t-warn":"t-ok",`data-jump="gps-low"`,"drove, but little")}
+   ${kpi(night.length,"Night driving","",`data-jump="gps-night"`,"trips 22:00–05:00")}
    ${kpi(idle.length,"Stopped 3+ days",idle.length?"t-bad":"t-ok",`data-jump="gps-idle"`)}
   </div>
   ${unk.length?`<p class="notice">${unk.length} GPS device${unk.length>1?"s":""} not in Car Info: ${unk.map(r=>esc(r.device)).join(", ")}.</p>`:""}
   ${(()=>{const bad=rows.filter(r=>r.c&&imeiOff(r,r.c));return bad.length?`<details class="notice"><summary><strong>${bad.length} car${bad.length>1?"s have":" has"} a different IMEI in Car Info than in the GPS system</strong> (matched by plate; please update Car Info)</summary><div class="tw" style="margin-top:6px"><table><thead><tr><th>Car</th><th>IMEI in GPS</th><th>IMEI in Car Info</th></tr></thead><tbody>${bad.map(r=>`<tr style="cursor:default"><td>${esc(r.c.plate)}</td><td>${esc(r.imei)}</td><td>${esc(r.c.imei)}</td></tr>`).join("")}</tbody></table></div></details>`:""})()}
   <div class="cols">
    <section class="panel"><h2>Km per day · last ${G.length} day${G.length>1?"s":""}</h2><div class="bars">${T.map(t=>`<div class="bar mbar cbar"><span>${esc(fmtD(t.d).replace(/, \d{4}$/,""))}</span><span class="track"><span class="fill" style="width:${t.km/tmx*100}%"></span></span><span class="num">${fmtN(t.km)}</span><span class="sub"></span></div>`).join("")}</div></section>
-   <section class="panel"><h2>Active / stopped per day</h2><div class="legend"><span><i style="background:var(--ok)"></i>Active</span><span><i style="background:var(--warn)"></i>Stopped</span></div><div class="bars">${T.map(t=>`<div class="bar mbar cbar"><span>${esc(fmtD(t.d).replace(/, \d{4}$/,""))}</span><span class="track stack"><span class="seg" style="width:${t.act/nmx*100}%;background:var(--ok)" title="Active ${t.act}"></span><span class="seg" style="width:${t.stop/nmx*100}%;background:var(--warn)" title="Stopped ${t.stop}"></span></span><span class="num">${t.act}</span><span class="sub">${t.stop} stopped</span></div>`).join("")}</div></section>
+   <section class="panel"><h2>Active / stopped per day</h2><div class="legend"><span><i style="background:var(--ok)"></i>Active</span><span><i style="background:var(--warn)"></i>Stopped</span></div><div class="bars">${T.map(t=>`<div class="bar mbar cbar"><span>${esc(fmtD(t.d).replace(/, \d{4}$/,""))}</span><span class="track stack"><span class="seg" style="width:${t.act/nmx*100}%;background:var(--ok)" title="Active ${t.act}"></span><span class="seg" style="width:${t.stop/nmx*100}%;background:var(--warn)" title="Stopped ${t.stop}"></span></span><span class="num">${t.act}</span><span class="sub">${t.stop} stopped · ${t.lo} under ${GPS_LOW} km · ${t.fa} over ${GPS_SPEED} km/h</span></div>`).join("")}</div></section>
   </div>
   <div class="cols">${gTable("By owner",grp(c=>c.owner))}${gTable("By location",grp(c=>c.location))}</div>
   <div class="cols">${gTable("By car type",grp(c=>`${c.brand||""} ${c.model||""}`.trim()))}
@@ -3653,7 +3654,17 @@ function vGps(){
    <section class="panel" id="gps-idle"><h2>Stopped several days in a row <span class="pill ${idle.length?"bad":"ok"}">${idle.length}</span></h2>${idle.length?`<ul class="att">${idle.map(x=>`<li>${pB(x.c.plate,x.c)}<div class="what">${esc(`${x.c.brand||""} ${x.c.model||""}`.trim())}<small>${esc(x.c.owner||"")} · ${esc(x.c.location||"")}</small></div><span class="pill bad">${x.n} days</span></li>`).join("")}</ul>`:`<p class="okline">No car stopped 3 or more uploaded days in a row.</p>`}</section>
    <section class="panel"><h2>Most km · last ${last7.length} day${last7.length>1?"s":""}</h2>${dBars(top7.map(x=>({k:`${x.c?x.c.plate:x.p}${x.c?" · "+(x.c.owner||""):""}`,v:Math.round(x.km),label:`${fmtN(x.km)} km · ${x.days}d`,id:x.c?x.c._id:""})),0,r=>r.id?`data-car="${esc(r.id)}"`:"")}</section>
   </div>
-  ${spd.length||night.length?`<section class="panel" id="gps-speed"><h2>Speed and night driving · ${fmtD(cur)}</h2><div class="tw"><table><thead><tr><th>Car</th><th>Car type</th><th>Owner</th><th class="num">Max speed</th><th class="num">Night trips</th><th>First – last trip</th></tr></thead><tbody>${[...new Map([...spd,...night].map(r=>[r.device,r])).values()].map(r=>`<tr style="cursor:default"><td>${pB(r.plate,r.c)}</td><td>${esc(r.c?`${r.c.brand||""} ${r.c.model||""}`:"")}</td><td>${esc(r.c?r.c.owner||"":"")}</td><td class="num">${r.max>GPS_SPEED?`<span class="pill bad">${r.max} km/h</span>`:r.max}</td><td class="num">${r.night||""}</td><td>${esc(r.first||"")} – ${esc(r.last||"")}</td></tr>`).join("")}</tbody></table></div></section>`:""}
+  ${(()=>{const last7=G.slice(-7);const hist=(f)=>{const m=new Map();last7.forEach(g=>g.cars.forEach(r=>{const c=carOf(r);if(!c)return;if(f(r))m.set(c._id,(m.get(c._id)||0)+1)}));return m};
+    const lowH=hist(r=>r.km>=GPS_MIN_KM&&r.km<GPS_LOW),fastH=hist(r=>r.max>GPS_SPEED);
+    const byOwn=(list)=>{const m=new Map();list.forEach(r=>{const k=(r.c&&r.c.owner)||"Not set";m.set(k,(m.get(k)||0)+1)});return[...m.entries()].sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="schip"><b>${v}</b> ${esc(k)}</span>`).join("")};
+    const drv=c=>esc((c&&((carDriver(c)||{}).name||c.driver))||"—");
+    return`<div class="cols">
+     <section class="panel" id="gps-low"><h2>Under ${GPS_LOW} km · ${fmtD(cur)} <span class="pill ${low.length?"warn":"ok"}">${low.length}</span></h2><p class="hint">Cars that drove (${GPS_MIN_KM}+ km) but less than ${GPS_LOW} km. Stopped cars are listed separately.</p>
+      ${low.length?`<div class="chiprow">${byOwn(low)}</div><div class="tw"><table><thead><tr><th>Car</th><th>Car type</th><th>Owner</th><th>Location</th><th>Driver</th><th class="num">Km</th><th class="num">Trips</th><th class="num">Low days (last ${last7.length})</th></tr></thead><tbody>${low.map(r=>`<tr style="cursor:default"><td>${pB(r.plate,r.c)}</td><td>${esc(`${r.c.brand||""} ${r.c.model||""}`.trim())}</td><td>${esc(r.c.owner||"")}</td><td>${esc(r.c.location||"")}</td><td>${drv(r.c)}</td><td class="num"><strong>${fmtN(r.km,1)}</strong></td><td class="num">${r.trips||""}</td><td class="num">${(lowH.get(r.c._id)||0)>=3?`<span class="pill warn">${lowH.get(r.c._id)}</span>`:lowH.get(r.c._id)||""}</td></tr>`).join("")}</tbody></table></div>`:`<p class="okline">No car drove less than ${GPS_LOW} km.</p>`}</section>
+     <section class="panel" id="gps-fast"><h2>Over ${GPS_SPEED} km/h · ${fmtD(cur)} <span class="pill ${spd.length?"bad":"ok"}">${spd.length}</span></h2><p class="hint">Highest speed above ${GPS_SPEED} km/h during the day.</p>
+      ${spd.length?`<div class="chiprow">${byOwn(spd)}</div><div class="tw"><table><thead><tr><th>Car</th><th>Car type</th><th>Owner</th><th>Location</th><th>Driver</th><th class="num">Max km/h</th><th class="num">Trips over ${GPS_SPEED}</th><th class="num">Days (last ${last7.length})</th></tr></thead><tbody>${spd.map(r=>`<tr style="cursor:default"><td>${pB(r.plate,r.c)}</td><td>${esc(r.c?`${r.c.brand||""} ${r.c.model||""}`.trim():"")}</td><td>${esc(r.c?r.c.owner||"":"")}</td><td>${esc(r.c?r.c.location||"":"")}</td><td>${drv(r.c)}</td><td class="num"><span class="pill ${r.max>=100?"bad":"warn"}">${r.max}</span></td><td class="num">${r.over||""}</td><td class="num">${r.c&&(fastH.get(r.c._id)||0)>=3?`<span class="pill bad">${fastH.get(r.c._id)}</span>`:(r.c&&fastH.get(r.c._id))||""}</td></tr>`).join("")}</tbody></table></div>`:`<p class="okline">No car went over ${GPS_SPEED} km/h.</p>`}</section>
+    </div>
+    ${night.length?`<section class="panel" id="gps-night"><h2>Night driving (22:00–05:00) · ${fmtD(cur)} <span class="pill none">${night.length}</span></h2><div class="tw"><table><thead><tr><th>Car</th><th>Car type</th><th>Owner</th><th>Driver</th><th class="num">Night trips</th><th>First – last trip</th></tr></thead><tbody>${night.map(r=>`<tr style="cursor:default"><td>${pB(r.plate,r.c)}</td><td>${esc(r.c?`${r.c.brand||""} ${r.c.model||""}`.trim():"")}</td><td>${esc(r.c?r.c.owner||"":"")}</td><td>${drv(r.c)}</td><td class="num">${r.night}</td><td>${esc(r.first||"")} – ${esc(r.last||"")}</td></tr>`).join("")}</tbody></table></div></section>`:""}`})()}
   <section class="panel" id="gps-list"><h2>All cars · ${fmtD(cur)}</h2>
    <div class="toolbar" style="margin:0 0 8px"><label for="gpsSort" class="sub">Sort</label>${sel("gpsSort",sortKey,[["km","Most km"],["dur","Longest driving time"],["trips","Most trips"],["max","Highest speed"]],"Sort")}</div>
    <div class="tw"><table><thead><tr><th>Car</th><th>Car type</th><th>Owner</th><th>Location</th><th class="num">Km</th><th class="num">Driving time</th><th class="num">Trips</th><th>First – last</th><th class="num">Avg / max km/h</th><th>Main area</th></tr></thead><tbody>
