@@ -222,6 +222,7 @@ body.p-nowrite [data-act=sellrecs],body.p-nowrite [data-act=sellclear],body.p-no
 .lvlkey{display:flex;flex-direction:column;gap:6px;margin-top:14px;font-size:13.5px;color:var(--muted)}
 #issuesHost[hidden]{display:none!important}
 #maintHost[hidden]{display:none!important}
+.repbox{display:inline-flex;gap:6px;align-items:center;padding:3px;border:1px solid var(--line);border-radius:8px}
 .upbtns{display:inline-flex;gap:8px;flex-wrap:wrap}
 .fdot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:0}
 #acc-fault .statbar span{cursor:pointer}
@@ -1333,7 +1334,7 @@ function ensurePolFrame(){
 "use strict";
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const S={cars:[],log:[],renewals:[],usage:[],uQ:"",uOwner:"",uSort:"total",uDir:-1,uFlag:"",uThr:"20",gps:[],gpsDate:"",gpsOwn:"",gpsLoc:"",gpsSort:"km",accOwn:"",repMode:"month",repMonth:"",repFrom:"",repTo:"",accFault:"",accQ:"",accPer:"all",accAll:false,accidents:[],mPlate:"",mRout:"hide",mRcCat:"",mAllRc:false,mAllRcc:false,mAllJobs:false,carView:"cards",mMonth:"",majorAt:"300000",mAllCars:false,mAllCpk:false,mAllRep:false,invites:{},lastCode:"",people:{},accessMap:{},accessDefault:null,perm:null,plat:null,level:1,levelKnown:false,updMeta:{},updHist:[],sumSec:"cars",sdGroup:"supervisor",sfGroup:"owner",smGroup:"cat",drivers:[],dQ:"",dOwner:"",dSup:"",dFlag:"",dSort:"lic",dDir:1,sumMet:"n",sellGroup:"model",sellList:new Set(),sellAll:false,uOff:"40",ovOpen:new Set(),maint:[],mQ:"",mOwner:"",mCat:"",mPeriod:"12",mLimit:200,mSort:"amt",mDir:-1,rMatch:"desc",rDays:"60",rRout:"hide",rLimit:50,loaded:false,error:null,db:null,user:null,canWrite:true,names:{},
+const S={cars:[],log:[],renewals:[],usage:[],uQ:"",uOwner:"",uSort:"total",uDir:-1,uFlag:"",uThr:"20",gpsRep:"day",gps:[],gpsDate:"",gpsOwn:"",gpsLoc:"",gpsSort:"km",accOwn:"",repMode:"month",repMonth:"",repFrom:"",repTo:"",accFault:"",accQ:"",accPer:"all",accAll:false,accidents:[],mPlate:"",mRout:"hide",mRcCat:"",mAllRc:false,mAllRcc:false,mAllJobs:false,carView:"cards",mMonth:"",majorAt:"300000",mAllCars:false,mAllCpk:false,mAllRep:false,invites:{},lastCode:"",people:{},accessMap:{},accessDefault:null,perm:null,plat:null,level:1,levelKnown:false,updMeta:{},updHist:[],sumSec:"cars",sdGroup:"supervisor",sfGroup:"owner",smGroup:"cat",drivers:[],dQ:"",dOwner:"",dSup:"",dFlag:"",dSort:"lic",dDir:1,sumMet:"n",sellGroup:"model",sellList:new Set(),sellAll:false,uOff:"40",ovOpen:new Set(),maint:[],mQ:"",mOwner:"",mCat:"",mPeriod:"12",mLimit:200,mSort:"amt",mDir:-1,rMatch:"desc",rDays:"60",rRout:"hide",rLimit:50,loaded:false,error:null,db:null,user:null,canWrite:true,names:{},
   view:"overview",q:"",fOwner:"",fLoc:"",fBrand:"",fFlag:"",sort:"urg",dir:1,groupBy:"owner",openGroup:null};
 
 /* ---------- Field config ---------- */
@@ -2717,6 +2718,11 @@ function openAccess(){
 /* ---------- Users & access ---------- */
 const SECTIONS=[["overview","Dashboard"],["issues","Daily issues"],["cars","Car Info"],["drivers","Drivers"],["usage","Driving & fuel"],["gps","GPS Daily"],["maint","Maintenance"],["acc","Accident Records"],["policies","Fr-Fl-Policies"],["updates","Settings"]];
 const ALLSEC=SECTIONS.map(x=>x[0]);
+const SEC_CONFIDENTIAL=new Set(["acc"]);
+const SEC_LEGACY=["overview","issues","cars","drivers","usage","maint","groups","renewals","history","updates","access"];
+function secAllowed(r){if(!r||!r.sections||!r.sections.length)return ALLSEC.filter(k=>!SEC_CONFIDENTIAL.has(k)||!r||!r.sections);
+  const known=r.known&&r.known.length?r.known:SEC_LEGACY;
+  return ALLSEC.filter(k=>r.sections.includes(k)||(!known.includes(k)&&!SEC_CONFIDENTIAL.has(k)))}
 const ACC_LEVELS=[["2","Level 2 · Full access"],["1","Level 1 · Read & write"],["view","View only"],["none","No access"]];
 const levelName=l=>(ACC_LEVELS.find(x=>x[0]===String(l))||ACC_LEVELS[2])[1];
 function computePerm(){
@@ -2729,7 +2735,7 @@ function computePerm(){
   if(level==="2"&&!P.edit){level="1";note.push("Your account is Level 1, so you have Level 1 for now.")}
   if((level==="2"||level==="1")&&P.write===false){level="view";note.push("Your account is view only.")}
   const L2=level==="2";
-  return{level,sections:new Set(L2?ALLSEC:(r.sections&&r.sections.length?r.sections:ALLSEC)),upload:(level==="1"&&!!r.upload)||L2,export:level!=="none"&&(L2||r.export!==false),write:level==="2"||level==="1",del:L2,manage:L2&&!!P.edit,src,note};
+  return{level,sections:new Set(L2?ALLSEC:secAllowed(r)),upload:(level==="1"&&!!r.upload)||L2,export:level!=="none"&&(L2||r.export!==false),write:level==="2"||level==="1",del:L2,manage:L2&&!!P.edit,src,note};
 }
 window.__fleetLevel=()=>S.perm?S.perm.level:null;
 function applyPerm(){
@@ -2741,7 +2747,7 @@ function applyPerm(){
   render();
 }
 const canSee=v=>v==="access"?true:!S.perm||S.perm.level!=="none"&&S.perm.sections.has(v);
-async function saveAccess(id,data){
+async function saveAccess(id,data){data={...data,known:ALLSEC};
   try{await S.db.collection("access").doc(id).set({...data,updatedAt:new Date().toISOString(),updatedBy:S.myId||""});
     await logIt("Edited","Access",`${id==="_default"?"Default access":(S.names[id]||"A person")}: ${levelName(data.level)}`)}
   catch(ex){toast(ex&&ex.code==="invalid_argument"?"Only Level 2 users can change access.":"Couldn’t save. Try again.")}
@@ -2750,7 +2756,7 @@ function accRow(id,r,isDef){
   const L2=r.level==="2";const dis=L2||r.level==="none";
   return`<tr style="cursor:default" data-accid="${esc(id)}"><td>${isDef?`<strong>Everyone else</strong><div class="sub">people not listed below</div>`:`<strong>${esc(S.names[id]||"Loading…")}</strong>${id===S.myId?` <span class="pill none">you</span>`:""}`}</td>
     <td><select data-acc="level" aria-label="Level">${ACC_LEVELS.filter(([v])=>!(isDef&&v==="2")).map(([v,l])=>`<option value="${v}"${String(r.level)===v?" selected":""}>${l}</option>`).join("")}</select></td>
-    <td><div class="secchips">${SECTIONS.map(([k,l])=>`<label class="secchip${dis?" dis":""}"><input type="checkbox" data-acc="sec" value="${k}"${(L2||!r.sections||r.sections.includes(k))&&r.level!=="none"?" checked":""}${dis?" disabled":""}>${l}</label>`).join("")}</div></td>
+    <td><div class="secchips">${SECTIONS.map(([k,l])=>`<label class="secchip${dis?" dis":""}"><input type="checkbox" data-acc="sec" value="${k}"${(L2||secAllowed(r).includes(k))&&r.level!=="none"?" checked":""}${dis?" disabled":""}>${l}</label>`).join("")}</div></td>
     <td class="num"><input type="checkbox" data-acc="upload" aria-label="Can upload"${L2||(r.upload&&r.level==="1")?" checked":""}${r.level!=="1"?" disabled":""}></td>
     <td class="num"><input type="checkbox" data-acc="export" aria-label="Can export"${L2||(r.export!==false&&r.level!=="none")?" checked":""}${L2||r.level==="none"?" disabled":""}></td>
     <td class="num">${L2?"✓":"—"}</td>
@@ -2787,7 +2793,7 @@ async function accChange(el){
   const cur={...(id==="_default"?(S.accessDefault||{level:"view",sections:ALLSEC,upload:false,export:true}):S.accessMap[id])};
   const k=el.dataset.acc;
   if(k==="level"){cur.level=el.value;if(!cur.sections)cur.sections=ALLSEC}
-  else if(k==="sec"){const set=new Set(cur.sections||ALLSEC);el.checked?set.add(el.value):set.delete(el.value);cur.sections=ALLSEC.filter(x=>set.has(x))}
+  else if(k==="sec"){const set=new Set(secAllowed(cur));el.checked?set.add(el.value):set.delete(el.value);cur.sections=ALLSEC.filter(x=>set.has(x))}
   else if(k==="upload")cur.upload=el.checked;else if(k==="export")cur.export=el.checked;
   if(id===S.myId&&cur.level!=="2"&&!S.plat.owner){if(!confirm("This lowers your own access. Continue?"))return render()}
   await saveAccess(id,cur);
@@ -2810,7 +2816,7 @@ async function processInvites(){
 }
 async function createInvite(){
   const f=$("#invForm");if(!f)return;const sections=[...f.querySelectorAll("input[name=isec]:checked")].map(x=>x.value);const level=f.ilevel.value;
-  const data={label:f.ilabel.value.trim(),level,sections:level==="2"?ALLSEC:sections,upload:level==="2"||(level==="1"&&f.iup.checked),export:level==="2"||f.iex.checked,createdAt:new Date().toISOString(),createdBy:S.myId||""};
+  const data={label:f.ilabel.value.trim(),level,known:ALLSEC,sections:level==="2"?ALLSEC:sections,upload:level==="2"||(level==="1"&&f.iup.checked),export:level==="2"||f.iex.checked,createdAt:new Date().toISOString(),createdBy:S.myId||""};
   if(!data.label){toast("Enter who the invite is for");f.ilabel.focus();return}
   let code=genCode();while(S.invites[code])code=genCode();
   try{await S.db.collection("access").doc("invite_"+code).set(data);await logIt("Edited","Access",`Invite ${code} created for ${data.label} (${levelName(level)})`);S.lastCode=code;render();toast(`Invite code ${code} created`)}catch(ex){toast("Only Level 2 users can create invites.")}
@@ -3551,7 +3557,7 @@ async function genReport(){
 function usageCover(){const L=(S.usage||[]).filter(u=>u.cover).sort((a,b)=>b.month.localeCompare(a.month)).slice(0,3);if(!L.length)return"";
   return`<p class="sub" style="margin:0 0 10px">Records cover: ${L.map(u=>`<strong>${monLabel(u.month)}</strong> ${esc(u.cover)}`).join(" · ")}. Km per litre is most accurate when km and fuel cover the same days.</p>`}
 /* ---------- GPS Daily ---------- */
-const GPS_KEEP_DAYS=60,GPS_MIN_KM=1,GPS_SPEED=80,GPS_LOW=40;
+const GPS_KEEP_DAYS=60,GPS_MIN_KM=1,GPS_SPEED=60,GPS_LOW=40;
 const devPlate=d=>{const s=String(d||"").trim();const m=/^([0-9]?[A-Za-z]{1,2})\s*[-\/ ]\s*(\d{3,4})/.exec(s);return m?`${m[1].toUpperCase()}/${m[2]}`:s};
 const hms=t=>{const m=/^(\d+):(\d{2}):(\d{2})$/.exec(String(t||"").trim());return m?(+m[1])*60+(+m[2])+(+m[3])/60:0};
 const fmtMin=m=>{m=Math.round(m||0);return`${Math.floor(m/60)}h ${pad(m%60)}m`};
@@ -3606,6 +3612,71 @@ async function onGpsUpload(file){
       catch(e){err.textContent=writeErr(e);b.disabled=false}})};
   paint();
 }
+async function genGpsReport(){
+  try{
+  const X=await loadXLSX();const cut=isoD(new Date(Date.now()-GPS_KEEP_DAYS*DAY));
+  const G=(S.gps||[]).filter(g=>g.date>=cut).sort((a,b)=>a.date.localeCompare(b.date));if(!G.length){toast("No GPS data to report");return}
+  const dates=G.map(g=>g.date);const cur=dates.includes(S.gpsDate)?S.gpsDate:dates[dates.length-1];const ci=dates.indexOf(cur);
+  const mode=S.gpsRep||"day";const pick=mode==="day"?[cur]:mode==="7"?dates.slice(Math.max(0,ci-6),ci+1):mode==="30"?dates.slice(Math.max(0,ci-29),ci+1):dates;
+  const D=G.filter(g=>pick.includes(g.date));const fo=S.gpsOwn||"",fl=S.gpsLoc||"";
+  const inF=c=>c&&(!fo||c.owner===fo)&&(!fl||c.location===fl);
+  const carOf=r=>(r.carId&&S.cars.find(c=>c._id===r.carId))||S.cars.find(c=>npk(c.plate)===npk(r.plate))||null;
+  const fleet=gpsFleet().filter(c=>(!fo&&!fl)||inF(c));
+  const typ=c=>c?`${c.brand||""} ${c.model||""}`.trim():"";const drv=c=>c?((carDriver(c)||{}).name||c.driver||""):"";
+  const label=pick.length===1?fmtD(pick[0]):`${fmtD(pick[0])} – ${fmtD(pick[pick.length-1])}`;
+  const r1=x=>Math.round(x*10)/10;
+  // per day, per car
+  const dayRows=[];const per=new Map(fleet.map(c=>[c._id,{c,km:0,act:0,stop:0,low:0,fast:0,night:0,max:0,trips:0,dur:0}]));const unknown=new Map();const imeiBad=new Map();
+  D.forEach(g=>{const byId=new Map();g.cars.forEach(r=>{const c=carOf(r);if(!c){unknown.set(r.device,(unknown.get(r.device)||0)+1);return}if((fo||fl)&&!inF(c))return;byId.set(c._id,r);if(imeiOff(r,c))imeiBad.set(c._id,[c.plate,r.imei,c.imei])});
+    fleet.forEach(c=>{const r=byId.get(c._id);const km=r?r.km:0;const st=km<GPS_MIN_KM?"Stopped":km<GPS_LOW?`Under ${GPS_LOW} km`:"Normal";const x=per.get(c._id);
+      x.km+=km;if(st==="Stopped")x.stop++;else x.act++;if(st.startsWith("Under"))x.low++;if(r&&r.max>GPS_SPEED)x.fast++;if(r){x.night+=r.night||0;x.max=Math.max(x.max,r.max||0);x.trips+=r.trips||0;x.dur+=r.durMin||0}
+      dayRows.push({d:g.date,c,r,km,st,fast:!!(r&&r.max>GPS_SPEED)})})});
+  const sheets=[];const mk=(name,blocks)=>{const aoa=[];blocks.forEach((b,bi)=>{if(bi)aoa.push([]);if(b.title)aoa.push([b.title]);if(b.note)aoa.push([b.note]);if(b.header)aoa.push(b.header);(b.rows||[]).forEach(r=>aoa.push(r));if(b.rows&&!b.rows.length)aoa.push(["(none)"])});
+    const ws=X.utils.aoa_to_sheet(aoa);const w=[];aoa.forEach(r=>r.length>1&&r.forEach((v,i)=>{w[i]=Math.min(40,Math.max(w[i]||8,String(v??"").length+2))}));ws["!cols"]=w.map(x=>({wch:x||12}));
+    Object.keys(ws).forEach(k=>{if(k[0]==="!")return;const c=ws[k];if(c.t==="n"&&!Number.isInteger(c.v))c.z="#,##0.0";else if(c.t==="n"&&Math.abs(c.v)>=1000)c.z="#,##0"});sheets.push([name,ws])};
+  const filt=[fo&&`owner ${fo}`,fl&&`location ${fl}`].filter(Boolean).join(", ")||"all owners and locations";
+  // 1 Summary
+  const sumRows=pick.map(d=>{const rs=dayRows.filter(x=>x.d===d);const act=rs.filter(x=>x.st!=="Stopped");const km=act.reduce((a,x)=>a+x.km,0);return[fmtD(d),rs.length,act.length,rs.filter(x=>x.st==="Stopped").length,rs.filter(x=>x.st.startsWith("Under")).length,rs.filter(x=>x.fast).length,rs.filter(x=>x.r&&x.r.night).length,r1(km),act.length?r1(km/act.length):""]});
+  const tot=k=>sumRows.reduce((a,r)=>a+(+r[k]||0),0);
+  const P=[...per.values()];const top=(f,n)=>P.filter(f).slice(0,n);
+  const hl=[];const fastest=[...dayRows].filter(x=>x.r).sort((a,b)=>b.r.max-a.r.max)[0];if(fastest&&fastest.r.max>GPS_SPEED)hl.push(["Highest speed",`${fastest.c.plate} (${fastest.c.owner||""}) ${fastest.r.max} km/h on ${fmtD(fastest.d)}${drv(fastest.c)?" · "+drv(fastest.c):""}`]);
+  const ms=[...P].sort((a,b)=>b.stop-a.stop).filter(x=>x.stop>0).slice(0,5);if(ms.length)hl.push(["Most stopped days",ms.map(x=>`${x.c.plate} ${x.stop}/${pick.length}`).join(" · ")]);
+  const ml=[...P].sort((a,b)=>b.low-a.low).filter(x=>x.low>0).slice(0,5);if(ml.length)hl.push([`Most days under ${GPS_LOW} km`,ml.map(x=>`${x.c.plate} ${x.low}`).join(" · ")]);
+  const mf=[...P].sort((a,b)=>b.fast-a.fast||b.max-a.max).filter(x=>x.fast>0).slice(0,5);if(mf.length)hl.push([`Most days over ${GPS_SPEED} km/h`,mf.map(x=>`${x.c.plate} ${x.fast} (max ${x.max})`).join(" · ")]);
+  const mk5=[...P].sort((a,b)=>b.km-a.km).slice(0,5);if(mk5.length)hl.push(["Most km",mk5.map(x=>`${x.c.plate} ${Math.round(x.km)} km`).join(" · ")]);
+  mk("Summary",[{title:`GPS report — ${label}`,note:`Generated ${fmtD(isoD(today()))} · ${filt} · ${fleet.length} GPS cars · stopped = under ${GPS_MIN_KM} km or no record · low use = under ${GPS_LOW} km · overspeed = over ${GPS_SPEED} km/h`,
+     header:["Day","GPS cars","Active","Stopped",`Under ${GPS_LOW} km`,`Over ${GPS_SPEED} km/h`,"Night driving","Total km","Km per active car"],rows:[...sumRows,...(pick.length>1?[["TOTAL / AVERAGE",r1(tot(1)/pick.length),tot(2),tot(3),tot(4),tot(5),tot(6),r1(tot(7)),tot(2)?r1(tot(7)/tot(2)):""]]:[])]},
+    {title:"Highlights",header:["Topic","Details"],rows:hl}]);
+  const base=x=>[fmtD(x.d),x.c.plate,typ(x.c),x.c.owner||"",x.c.location||"",drv(x.c)];const baseH=["Day","Car","Car type","Owner","Location","Driver"];
+  // 2 Over 80
+  mk(`Over ${GPS_SPEED} kmh`,[{title:`Over ${GPS_SPEED} km/h — ${label}`,header:[...baseH,"Max km/h",`Trips over ${GPS_SPEED}`,"Km","First trip","Last trip","Main area"],rows:dayRows.filter(x=>x.fast).sort((a,b)=>b.r.max-a.r.max).map(x=>[...base(x),x.r.max,x.r.over||"",r1(x.km),x.r.first||"",x.r.last||"",x.r.area||""])},
+    ...(pick.length>1?[{title:"Per car",header:["Car","Car type","Owner","Location","Driver",`Days over ${GPS_SPEED}`,"Highest km/h"],rows:P.filter(x=>x.fast).sort((a,b)=>b.fast-a.fast||b.max-a.max).map(x=>[x.c.plate,typ(x.c),x.c.owner||"",x.c.location||"",drv(x.c),x.fast,x.max])}]:[])]);
+  // 3 Stopped
+  mk("Stopped",[{title:`Stopped cars — ${label}`,header:[...baseH,"Reason","Km","Car status (AF)"],rows:dayRows.filter(x=>x.st==="Stopped").map(x=>[...base(x),x.r?`under ${GPS_MIN_KM} km`:"no GPS record",r1(x.km),x.c.health||""])},
+    ...(pick.length>1?[{title:"Per car",header:["Car","Car type","Owner","Location","Driver","Stopped days",`of ${pick.length} days`,"Car status (AF)"],rows:P.filter(x=>x.stop).sort((a,b)=>b.stop-a.stop).map(x=>[x.c.plate,typ(x.c),x.c.owner||"",x.c.location||"",drv(x.c),x.stop,pick.length,x.c.health||""])}]:[])]);
+  // 4 Under 40
+  mk(`Under ${GPS_LOW} km`,[{title:`Under ${GPS_LOW} km (drove, but little) — ${label}`,header:[...baseH,"Km","Trips","Driving time","First trip","Last trip"],rows:dayRows.filter(x=>x.st.startsWith("Under")).sort((a,b)=>a.km-b.km).map(x=>[...base(x),r1(x.km),x.r.trips||"",fmtMin(x.r.durMin),x.r.first||"",x.r.last||""])},
+    ...(pick.length>1?[{title:"Per car",header:["Car","Car type","Owner","Location","Driver",`Days under ${GPS_LOW} km`,"Average km per active day"],rows:P.filter(x=>x.low).sort((a,b)=>b.low-a.low).map(x=>[x.c.plate,typ(x.c),x.c.owner||"",x.c.location||"",drv(x.c),x.low,x.act?r1(x.km/x.act):""])}]:[])]);
+  // 5 Night
+  mk("Night driving",[{title:`Night driving (22:00–05:00) — ${label}`,header:[...baseH,"Night trips","First trip","Last trip","Km"],rows:dayRows.filter(x=>x.r&&x.r.night).map(x=>[...base(x),x.r.night,x.r.first||"",x.r.last||"",r1(x.km)])}]);
+  // 6 Groups
+  const grp=(f)=>{const m=new Map();P.forEach(x=>{const k=f(x.c)||"Not set";const y=m.get(k)||{k,cars:0,km:0,act:0,stop:0,low:0,fast:0};y.cars++;y.km+=x.km;y.act+=x.act;y.stop+=x.stop;y.low+=x.low;y.fast+=x.fast;m.set(k,y)});return[...m.values()].sort((a,b)=>b.km-a.km).map(y=>[y.k,y.cars,r1(y.act/pick.length),r1(y.km),y.act?r1(y.km/y.act):"",y.stop,y.low,y.fast])};
+  const gH=["","GPS cars","Active cars per day","Total km","Km per active car-day","Stopped car-days",`Under ${GPS_LOW} km car-days`,`Over ${GPS_SPEED} km/h car-days`];
+  mk("By owner-location-type",[{title:"By owner",header:["Owner",...gH.slice(1)],rows:grp(c=>c.owner)},{title:"By location",header:["Location",...gH.slice(1)],rows:grp(c=>c.location)},{title:"By car type",header:["Car type",...gH.slice(1)],rows:grp(c=>typ(c))}]);
+  // 7 All cars
+  mk("All cars",[{title:`All GPS cars — ${label}`,header:["Car","Car type","Owner","Location","Driver","Total km","Active days","Stopped days",`Under ${GPS_LOW} km days`,`Over ${GPS_SPEED} km/h days`,"Highest km/h","Trips","Driving time","Night trips","Km per active day"],
+    rows:[...P].sort((a,b)=>b.km-a.km).map(x=>[x.c.plate,typ(x.c),x.c.owner||"",x.c.location||"",drv(x.c),r1(x.km),x.act,x.stop,x.low,x.fast,x.max||"",x.trips,fmtMin(x.dur),x.night||"",x.act?r1(x.km/x.act):""])}]);
+  // 8 Daily detail
+  mk("Daily detail",[{title:`Every car, every day — ${label}`,header:[...baseH,"Status","Km","Driving time","Trips","First trip","Last trip","Avg km/h","Max km/h","Night trips","Main area"],
+    rows:dayRows.map(x=>[...base(x),x.st,r1(x.km),x.r?fmtMin(x.r.durMin):"",x.r?x.r.trips||"":"",x.r?x.r.first||"":"",x.r?x.r.last||"":"",x.r?x.r.avg:"",x.r?x.r.max:"",x.r?x.r.night||"":"",x.r?x.r.area||"":""])}]);
+  // 9 Data checks
+  mk("Data checks",[{title:"GPS devices not in Car Info (no matching plate or IMEI)",header:["Device name","Days in the period"],rows:[...unknown.entries()]},{title:"IMEI in Car Info differs from the GPS system (matched by plate)",header:["Car","IMEI in GPS","IMEI in Car Info"],rows:[...imeiBad.values()]}]);
+  const wb=X.utils.book_new();sheets.forEach(([n,ws])=>X.utils.book_append_sheet(wb,ws,n.slice(0,31)));
+  const name=`GPS_report_${pick.length===1?pick[0]:pick[0]+"_to_"+pick[pick.length-1]}${fo?"_"+fo:""}${fl?"_"+fl:""}.xlsx`.replace(/[^\w.\-]/g,"_");
+  const dl=await claude.use("downloads");if(dl)await dl.save({filename:name,data:new Blob([X.write(wb,{type:"array",bookType:"xlsx"})],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})});
+  toast(`Downloaded ${name}`);
+  }catch(e){console.error(e);toast("Couldn’t build the GPS report: "+(e&&e.message||e))}
+}
 function vGps(){
   const up=S.db&&S.canWrite&&(!S.perm||S.perm.upload)?`<button class="btn primary" data-act="gpsup">⬆ Upload GPS file</button>`:"";
   const cut=isoD(new Date(Date.now()-GPS_KEEP_DAYS*DAY));const G=(S.gps||[]).filter(g=>g.date>=cut).sort((a,b)=>a.date.localeCompare(b.date));
@@ -3630,6 +3701,7 @@ function vGps(){
   const sortKey=S.gpsSort||"km";const list=[...rows].sort((a,b)=>sortKey==="max"?b.max-a.max:sortKey==="dur"?b.durMin-a.durMin:sortKey==="trips"?b.trips-a.trips:b.km-a.km);
   return`<div class="toolbar"><label for="gpsDate" class="sub">Day</label>${sel("gpsDate",cur,[...dates].reverse().map(d=>[d,fmtD(d)]),"Day")}
     ${sel("gpsOwn",fo,[["","All owners"],...uniq(fleet.map(c=>c.owner)).map(o=>[o,o])],"Owner")}${sel("gpsLoc",fl,[["","All locations"],...uniq(fleet.map(c=>c.location)).map(o=>[o,o])],"Location")}${up}
+    ${!S.perm||S.perm.export?`<span class="repbox">${sel("gpsRep",S.gpsRep||"day",[["day","Selected day"],["7","Last 7 days"],["30","Last 30 days"],["all","All kept days"]],"Report period")}<button class="btn" data-act="gpsrep">⬇ GPS report</button></span>`:""}
     <span class="count">${G.length} day${G.length>1?"s":""} kept (last ${GPS_KEEP_DAYS})</span></div>
   <div class="kpis">
    ${kpi(F.length,"GPS cars","",`data-jump="gps-list"`,"Car Info cars with IMEI / GPS")}
@@ -4065,11 +4137,11 @@ document.addEventListener("click",e=>{
   if(t.dataset.group!=null){S.openGroup=S.openGroup===t.dataset.group?null:t.dataset.group;render();return}
   const a=t.dataset.act,id=t.dataset.id;
   const P=S.perm;if(P){if(["upload","fuelup","kmup","fuelonlyup","gpsup","maintup","drvup"].includes(a)&&!P.upload){toast("You don’t have upload access");return}if(["delete","mdel"].includes(a)&&!P.del){toast("Only Level 2 can delete");return}if(a==="exportall"&&!P.export){toast("You don’t have export access");return}}
-  if(a==="exportall")exportAll();else if(a==="drvup")$("#drvIn").click();else if(a==="mplatego"){const dd=document.getElementById("detailDlg");if(dd&&dd.open)dd.close();const v=t.dataset.plate||((document.getElementById("mplate")||{}).value||"").trim();S.mPlate=v;S.mAllJobs=false;if(location.hash!=="#maint")location.hash="maint";else render();window.scrollTo(0,0)}else if(a==="mplateclr"){S.mPlate="";render()}else if(a==="mallrc"){S.mAllRc=!S.mAllRc;render()}else if(a==="mallrcc"){S.mAllRcc=!S.mAllRcc;render()}else if(a==="malljobs"){S.mAllJobs=!S.mAllJobs;render()}else if(a==="rcclear"){S.mRcCat="";render()}else if(a==="genrep"){genReport()}else if(a==="mallsvc"){S.mAllSvc=!S.mAllSvc;render()}else if(a==="accall"){S.accAll=!S.accAll;render()}else if(a==="mallcars"){S.mAllCars=!S.mAllCars;render()}else if(a==="mallcpk"){S.mAllCpk=!S.mAllCpk;render()}else if(a==="mallrep"){S.mAllRep=!S.mAllRep;render()}else if(a==="srcrefresh"){loadSources();toast("Reading the Google Sheets…")}else if(a==="srcsave"){const k=t.dataset.k;const l=(document.querySelector(`[data-src-link="${k}"]`)||{}).value||"";const tb=((document.querySelector(`[data-src-tab="${k}"]`)||{}).value||"").trim();if(!sheetIdOf(l.trim())&&!isPubLink(l.trim())){toast("Paste a valid Google Sheet link, or a “Publish to web” CSV link");return}saveSource(k,SRC_DEF[k][2]==="tabs"?{link:l.trim(),tabs:tb}:{link:l.trim(),tab:tb})}else if(a==="srcclear"){if(confirm("Unlink this sheet? The portal will show the data saved earlier."))saveSource(t.dataset.k,null)}else if(a==="mkinvite")createInvite();else if(a==="redeem")redeemCode();else if(a==="delinvite"){const c=t.dataset.code;if(confirm(`Delete invite ${c}? People who already joined keep their access.`))S.db.collection("access").doc("invite_"+c).delete().catch(()=>toast("Only Level 2 users can delete invites."))}else if(a==="sellall"){S.sellAll=!S.sellAll;render()}else if(a==="sellclear"){saveSellList(new Set())}else if(a==="sellrecs"){const SS=sellScores();const n=new Set(S.sellList);if(SS)SS.list.filter(x=>x.tier[1].startsWith("Sell")).forEach(x=>n.add(x.carId));saveSellList(n)}else if(a==="ovall"){document.querySelectorAll("details[data-ov]").forEach(d=>{d.open=t.dataset.v==="1"})}else if(a==="gorep"){const el=document.getElementById("repeats");if(el)el.scrollIntoView({block:"start"})}else if(a==="rmore"){S.rLimit+=50;render()}else if(a==="maintup")$("#maintIn").click();else if(a==="mmore"){S.mLimit+=200;render()}else if(a==="mdel")delMaintMonth(t.dataset.month);else if(a==="fuelup"){window.__fuelExpect="";$("#fuelIn").click()}else if(a==="gpsup"){$("#gpsIn").click()}else if(a==="kmup"){window.__fuelExpect="km";$("#fuelIn").click()}else if(a==="fuelonlyup"){window.__fuelExpect="fuel";$("#fuelIn").click()}else if(a==="extlic")openExtend(id,"lic");else if(a==="extcom")openExtend(id,"com");else if(a==="upload")$("#fileIn").click();else if(a==="add")openForm();else if(a==="edit")openForm(id);else if(a==="sell")openSell(id);else if(a==="restore")restore(id);else if(a==="delete")del(id);
+  if(a==="exportall")exportAll();else if(a==="drvup")$("#drvIn").click();else if(a==="mplatego"){const dd=document.getElementById("detailDlg");if(dd&&dd.open)dd.close();const v=t.dataset.plate||((document.getElementById("mplate")||{}).value||"").trim();S.mPlate=v;S.mAllJobs=false;if(location.hash!=="#maint")location.hash="maint";else render();window.scrollTo(0,0)}else if(a==="mplateclr"){S.mPlate="";render()}else if(a==="mallrc"){S.mAllRc=!S.mAllRc;render()}else if(a==="mallrcc"){S.mAllRcc=!S.mAllRcc;render()}else if(a==="malljobs"){S.mAllJobs=!S.mAllJobs;render()}else if(a==="rcclear"){S.mRcCat="";render()}else if(a==="genrep"){genReport()}else if(a==="mallsvc"){S.mAllSvc=!S.mAllSvc;render()}else if(a==="accall"){S.accAll=!S.accAll;render()}else if(a==="mallcars"){S.mAllCars=!S.mAllCars;render()}else if(a==="mallcpk"){S.mAllCpk=!S.mAllCpk;render()}else if(a==="mallrep"){S.mAllRep=!S.mAllRep;render()}else if(a==="srcrefresh"){loadSources();toast("Reading the Google Sheets…")}else if(a==="srcsave"){const k=t.dataset.k;const l=(document.querySelector(`[data-src-link="${k}"]`)||{}).value||"";const tb=((document.querySelector(`[data-src-tab="${k}"]`)||{}).value||"").trim();if(!sheetIdOf(l.trim())&&!isPubLink(l.trim())){toast("Paste a valid Google Sheet link, or a “Publish to web” CSV link");return}saveSource(k,SRC_DEF[k][2]==="tabs"?{link:l.trim(),tabs:tb}:{link:l.trim(),tab:tb})}else if(a==="srcclear"){if(confirm("Unlink this sheet? The portal will show the data saved earlier."))saveSource(t.dataset.k,null)}else if(a==="mkinvite")createInvite();else if(a==="redeem")redeemCode();else if(a==="delinvite"){const c=t.dataset.code;if(confirm(`Delete invite ${c}? People who already joined keep their access.`))S.db.collection("access").doc("invite_"+c).delete().catch(()=>toast("Only Level 2 users can delete invites."))}else if(a==="sellall"){S.sellAll=!S.sellAll;render()}else if(a==="sellclear"){saveSellList(new Set())}else if(a==="sellrecs"){const SS=sellScores();const n=new Set(S.sellList);if(SS)SS.list.filter(x=>x.tier[1].startsWith("Sell")).forEach(x=>n.add(x.carId));saveSellList(n)}else if(a==="ovall"){document.querySelectorAll("details[data-ov]").forEach(d=>{d.open=t.dataset.v==="1"})}else if(a==="gorep"){const el=document.getElementById("repeats");if(el)el.scrollIntoView({block:"start"})}else if(a==="rmore"){S.rLimit+=50;render()}else if(a==="maintup")$("#maintIn").click();else if(a==="mmore"){S.mLimit+=200;render()}else if(a==="mdel")delMaintMonth(t.dataset.month);else if(a==="fuelup"){window.__fuelExpect="";$("#fuelIn").click()}else if(a==="gpsrep"){genGpsReport()}else if(a==="gpsup"){$("#gpsIn").click()}else if(a==="kmup"){window.__fuelExpect="km";$("#fuelIn").click()}else if(a==="fuelonlyup"){window.__fuelExpect="fuel";$("#fuelIn").click()}else if(a==="extlic")openExtend(id,"lic");else if(a==="extcom")openExtend(id,"com");else if(a==="upload")$("#fileIn").click();else if(a==="add")openForm();else if(a==="edit")openForm(id);else if(a==="sell")openSell(id);else if(a==="restore")restore(id);else if(a==="delete")del(id);
 });
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="mplate"){S.mPlate=e.target.value.trim();S.mAllJobs=false;render();return}if(e.key!=="Enter")return;const tr=e.target.closest&&e.target.closest("tr[data-car],tr[data-group],tr[data-drv],[data-sdpick],[data-sfpick],[data-smpick]");if(tr)tr.click()});
 document.addEventListener("input",e=>{if(e.target.id==="q"){S.q=e.target.value;render()}else if(e.target.id==="uq"){S.uQ=e.target.value;render()}else if(e.target.id==="dq"){S.dQ=e.target.value;render()}else if(e.target.id==="accQ"){S.accQ=e.target.value;render()}else if(e.target.id==="accSearch"){accSearch(e.target.value)}else if(e.target.id==="mq"){S.mQ=e.target.value;S.mLimit=200;render()}});
-document.addEventListener("change",e=>{if(e.target.id==="carSort"){S.sort=e.target.value;S.dir=1;render();return}if(e.target.dataset&&e.target.dataset.acc&&e.target.dataset.acc!=="remove"){accChange(e.target);return}if(e.target.dataset&&e.target.dataset.sellpick){const n=new Set(S.sellList);const id=e.target.dataset.sellpick;if(e.target.checked)n.add(id);else n.delete(id);saveSellList(n);return}const id=e.target.id;if(["fOwner","fLoc","fBrand","fFlag","groupBy","uOwner","uFlag","uThr","uOff","mPeriod","mOwner","mCat","rMatch","rDays","rRout","sellGroup","gpsDate","gpsOwn","gpsLoc","gpsSort","accOwn","repMonth","repFrom","repTo","accPer","mRout","carSort","mMonth","majorAt","dOwner","dSup","dFlag"].includes(id)){S[id]=e.target.value;if(id==="groupBy")S.openGroup=null;render()}});
+document.addEventListener("change",e=>{if(e.target.id==="carSort"){S.sort=e.target.value;S.dir=1;render();return}if(e.target.dataset&&e.target.dataset.acc&&e.target.dataset.acc!=="remove"){accChange(e.target);return}if(e.target.dataset&&e.target.dataset.sellpick){const n=new Set(S.sellList);const id=e.target.dataset.sellpick;if(e.target.checked)n.add(id);else n.delete(id);saveSellList(n);return}const id=e.target.id;if(["fOwner","fLoc","fBrand","fFlag","groupBy","uOwner","uFlag","uThr","uOff","mPeriod","mOwner","mCat","rMatch","rDays","rRout","sellGroup","gpsRep","gpsDate","gpsOwn","gpsLoc","gpsSort","accOwn","repMonth","repFrom","repTo","accPer","mRout","carSort","mMonth","majorAt","dOwner","dSup","dFlag"].includes(id)){S[id]=e.target.value;if(id==="groupBy")S.openGroup=null;render()}});
 document.addEventListener("toggle",e=>{const d=e.target;if(d&&d.dataset&&d.dataset.ov){if(d.open)S.ovOpen.add(d.dataset.ov);else S.ovOpen.delete(d.dataset.ov)}},true);
 $("#addBtn").addEventListener("click",()=>openForm());
 $("#exportBtn").addEventListener("click",()=>{if(S.perm&&!S.perm.export)return;exportAll()});
